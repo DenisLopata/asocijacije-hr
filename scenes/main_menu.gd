@@ -550,7 +550,7 @@ func _fmt_time(secs: float) -> String:
 		return "%ds" % s
 	return "%dm%02ds" % [s / 60, s % 60]
 
-func _make_leaderboard_row_menu(rank: int, entry: Dictionary, is_me: bool) -> Control:
+func _make_leaderboard_row_menu(rank: int, entry: Dictionary, is_me: bool, odd: bool = false) -> Control:
 	var row := HBoxContainer.new()
 	row.add_theme_constant_override("separation", 8)
 
@@ -599,18 +599,23 @@ func _make_leaderboard_row_menu(rank: int, entry: Dictionary, is_me: bool) -> Co
 	time_lbl.add_theme_font_size_override("font_size", 13)
 	row.add_child(time_lbl)
 
+	var row_bg := PanelContainer.new()
+	var bg_color: Color
 	if is_me:
-		var row_bg := PanelContainer.new()
-		var sb := _rounded_box(C_ACCENT.darkened(0.72), 8)
-		sb.content_margin_left   = 6
-		sb.content_margin_right  = 6
-		sb.content_margin_top    = 3
-		sb.content_margin_bottom = 3
-		row_bg.add_theme_stylebox_override("panel", sb)
-		row_bg.size_flags_horizontal = Control.SIZE_EXPAND_FILL
-		row_bg.add_child(row)
-		return row_bg
-	return row
+		bg_color = C_ACCENT.darkened(0.72)
+	elif odd:
+		bg_color = Color(1, 1, 1, 0.03)
+	else:
+		bg_color = Color(0, 0, 0, 0)
+	var sb := _rounded_box(bg_color, 6)
+	sb.content_margin_left   = 6
+	sb.content_margin_right  = 6
+	sb.content_margin_top    = 3
+	sb.content_margin_bottom = 3
+	row_bg.add_theme_stylebox_override("panel", sb)
+	row_bg.size_flags_horizontal = Control.SIZE_EXPAND_FILL
+	row_bg.add_child(row)
+	return row_bg
 
 func _show_leaderboard_overlay_menu(mode: String, date_str: String) -> void:
 	if _overlay and is_instance_valid(_overlay):
@@ -715,7 +720,7 @@ func _show_leaderboard_overlay_menu(mode: String, date_str: String) -> void:
 		var me_row: Control = null
 		for i in entries.size():
 			var is_me: bool = entries[i]["uid"] == my_uid
-			var row := _make_leaderboard_row_menu(i + 1, entries[i], is_me)
+			var row := _make_leaderboard_row_menu(i + 1, entries[i], is_me, i % 2 == 1)
 			list.add_child(row)
 			if is_me:
 				me_row = row
