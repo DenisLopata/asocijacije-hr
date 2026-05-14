@@ -75,10 +75,10 @@ func _unhandled_input(event: InputEvent) -> void:
 			var date_str: String = SaveManager.get_today()["date_str"]
 			var cfg := ConfigFile.new()
 			cfg.load(SaveManager.PREFS_PATH)
-			cfg.erase_section_key("daily_single", date_str + "_score")
-			cfg.erase_section_key("daily_single", date_str + "_time")
-			cfg.erase_section_key("daily_five",   date_str + "_score")
-			cfg.erase_section_key("daily_five",   date_str + "_time")
+			for sec in ["daily_single", "daily_five"]:
+				if cfg.has_section(sec):
+					cfg.erase_section_key(sec, date_str + "_score")
+					cfg.erase_section_key(sec, date_str + "_time")
 			cfg.save(SaveManager.PREFS_PATH)
 			print("[DEBUG] Cleared daily results for ", date_str)
 			get_tree().reload_current_scene()
