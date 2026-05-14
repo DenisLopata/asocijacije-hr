@@ -13,13 +13,62 @@ var _cache: Dictionary = {}
 var _last_error: String = ""
 
 # ── Low-level HTTP ─────────────────────────────────────────────────────────
+
+# Web path: browser fetch() via JavaScriptBridge — browser handles Content-Encoding
+# transparently so Godot never sees gzip bytes.
+signal _fetch_done
+var _fetch_code: int = 0
+var _fetch_body: String = ""
+var _js_cb  # JavaScriptObject — kept alive to prevent GC
+
+func _http_web(method_str: String, url: String, body: String, content_type: String, token: String = "") -> Variant:
+	var window = JavaScriptBridge.get_interface("window")
+	# Pass request data via window properties to avoid JS string-escaping issues
+	window["__gfb_method"] = method_str
+	window["__gfb_url"]    = url
+	window["__gfb_body"]   = body
+	window["__gfb_ct"]     = content_type
+	window["__gfb_token"]  = token
+
+	_js_cb = JavaScriptBridge.create_callback(func(args):
+		_fetch_code = int(args[0])
+		_fetch_body = str(args[1])
+		_fetch_done.emit()
+	)
+	window["__gfb_cb"] = _js_cb
+
+	JavaScriptBridge.eval("""
+(function() {
+	var hdr = { 'Content-Type': window.__gfb_ct };
+	if (window.__gfb_token) hdr['Authorization'] = 'Bearer ' + window.__gfb_token;
+	var opts = { method: window.__gfb_method, headers: hdr };
+	if (window.__gfb_body) opts.body = window.__gfb_body;
+	fetch(window.__gfb_url, opts)
+		.then(function(r) { var s = r.status; return r.text().then(function(t) { return [s, t]; }); })
+		.then(function(a) { window.__gfb_cb(a[0], a[1]); })
+		.catch(function(e) { console.error('FirebaseClient fetch error:', e); window.__gfb_cb(0, ''); });
+})();
+""", true)
+
+	await _fetch_done
+	var code := _fetch_code
+	var text := _fetch_body
+	print("FirebaseClient(web): http=%d url=%s" % [code, url.left(60)])
+	if code < 200 or code >= 300:
+		push_warning("FirebaseClient HTTP %d: %s" % [code, text.left(300)])
+		return null
+	return JSON.parse_string(text)
+
 func _http(method: int, url: String, body: String, content_type: String, token: String = "") -> Variant:
+	if OS.get_name() == "Web":
+		var method_str := "POST" if method == HTTPClient.METHOD_POST else "GET"
+		return await _http_web(method_str, url, body, content_type, token)
+
 	var http := HTTPRequest.new()
 	http.timeout = 10.0
 	add_child(http)
 	var headers := PackedStringArray([
 		"Content-Type: " + content_type,
-		"Accept-Encoding: identity",
 	])
 	if token != "":
 		headers.append("Authorization: Bearer " + token)
