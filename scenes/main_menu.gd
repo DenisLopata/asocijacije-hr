@@ -137,7 +137,7 @@ func _build_buttons(parent: VBoxContainer) -> void:
 		var score: int = saved["state"].get("score", 0) if saved.has("state") else 0
 		btns.append({
 			"label": "Nastavi igru",
-			"sub":   "Slagalica %d/%d  •  %d bodova" % [idx + 1, total, score],
+			"sub":   "Slagalica %d/%d  |  %d bodova" % [idx + 1, total, score],
 			"style": "continue",
 			"action": func() -> void: _go_to_game(false),
 		})
