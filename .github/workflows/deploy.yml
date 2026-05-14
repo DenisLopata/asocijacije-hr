@@ -11,20 +11,20 @@ jobs:
     steps:
       - uses: actions/checkout@v4
 
-      - name: Install Godot 4.6
+      - name: Install Godot 4.6.2
         run: |
-          wget -q https://github.com/godotengine/godot/releases/download/4.6-stable/Godot_v4.6-stable_linux.x86_64.zip
-          unzip -q Godot_v4.6-stable_linux.x86_64.zip
-          mv Godot_v4.6-stable_linux.x86_64 godot
+          wget -q --tries=3 https://github.com/godotengine/godot/releases/download/4.6.2-stable/Godot_v4.6.2-stable_linux.x86_64.zip
+          unzip -q Godot_v4.6.2-stable_linux.x86_64.zip
+          mv Godot_v4.6.2-stable_linux.x86_64 godot
           chmod +x godot
 
       - name: Install Web export templates
         run: |
-          wget -q https://github.com/godotengine/godot/releases/download/4.6-stable/Godot_v4.6-stable_export_templates.tpz
-          unzip -q Godot_v4.6-stable_export_templates.tpz
-          mkdir -p ~/.local/share/godot/export_templates/4.6.stable
-          mv templates/* ~/.local/share/godot/export_templates/4.6.stable/
-          ls ~/.local/share/godot/export_templates/4.6.stable/ | head -5
+          wget -q --tries=3 https://github.com/godotengine/godot/releases/download/4.6.2-stable/Godot_v4.6.2-stable_export_templates.tpz
+          unzip -q Godot_v4.6.2-stable_export_templates.tpz
+          mkdir -p ~/.local/share/godot/export_templates/4.6.2.stable
+          mv templates/* ~/.local/share/godot/export_templates/4.6.2.stable/
+          ls ~/.local/share/godot/export_templates/4.6.2.stable/ | head -5
 
       - name: Export to Web
         run: |
