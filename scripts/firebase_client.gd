@@ -53,12 +53,10 @@ func _http(method: int, url: String, body: String, content_type: String, token: 
 		return null
 	var data = await http.request_completed
 	http.queue_free()
-	var result_code: int = data[0]
-	var code: int        = data[1]
-	var text: String     = (data[3] as PackedByteArray).get_string_from_utf8()
-	print("FirebaseClient: result=%d http=%d url=%s" % [result_code, code, url.left(60)])
+	var code: int    = data[1]
+	var text: String = (data[3] as PackedByteArray).get_string_from_utf8()
 	if code < 200 or code >= 300:
-		push_warning("FirebaseClient HTTP %d: %s" % [code, text.left(300)])
+		print("FirebaseClient HTTP %d: %s" % [code, text.left(300)])
 		return null
 	return JSON.parse_string(text)
 
@@ -88,7 +86,7 @@ func ensure_authed() -> bool:
 
 	var resp = await _post_json(_AUTH_URL, {"returnSecureToken": true})
 	if resp == null or not resp.has("idToken"):
-		push_warning("FirebaseClient: anonymous sign-in failed — resp: %s" % str(resp))
+		print("FirebaseClient: anonymous sign-in failed — resp: %s" % str(resp))
 		return false
 
 	_id_token = resp["idToken"]
@@ -132,7 +130,7 @@ func submit_score(player_name: String, score: int, time_sec: float,
 			[player_name, score, time_sec, mode, date_str, seed])
 		if r[0] != 1:
 			_last_error = r[1] if r[1] != "" else "network_error"
-			push_warning("FirebaseClient: submit_score failed — %s" % _last_error)
+			print("FirebaseClient: submit_score failed — %s" % _last_error)
 			return false
 		_uid = r[1]  # JS returns uid on success
 		_cache.erase(mode + "_" + date_str)
@@ -163,7 +161,7 @@ func submit_score(player_name: String, score: int, time_sec: float,
 		resp = await _post_json(_FS_BASE + "/leaderboard", body, _id_token)
 	if resp == null:
 		_last_error = "network_error"
-		push_warning("FirebaseClient: submit_score failed after retry")
+		print("FirebaseClient: submit_score failed after retry")
 		return false
 	_cache.erase(mode + "_" + date_str)
 	mark_submitted(mode, date_str)

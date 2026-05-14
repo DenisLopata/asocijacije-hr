@@ -282,7 +282,6 @@ func _restore_state(data: Dictionary) -> void:
 
 func _register_theme_variations() -> void:
 	if not theme:
-		push_warning("GameScreen: no theme assigned — UI type variations will not apply")
 		return
 	theme.set_type_variation("TileButton",          &"Button")
 	theme.set_type_variation("GhostButton",         &"Button")

@@ -122,7 +122,6 @@ func _ready() -> void:
 
 func _register_theme_variations() -> void:
 	if not theme:
-		push_warning("MainMenu: no theme assigned")
 		return
 	theme.set_type_variation("TitleLabel",    &"Label")
 	theme.set_type_variation("SubtitleLabel", &"Label")
