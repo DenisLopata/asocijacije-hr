@@ -16,6 +16,7 @@ const ANIM_SOLVED_ROW   := 0.30
 const ANIM_PRESS_DIP    := 0.07
 const ANIM_PRESS_RISE   := 0.13
 const ANIM_SCORE        := 0.45
+const ANIM_FADE_OUT     := 0.35
 const FEEDBACK_AUTO_HIDE := 3.5
 
 # ── Palette ────────────────────────────────────────────────────────────────
@@ -92,6 +93,7 @@ var _score_display: int = 0
 
 var _overlay: Control = null
 var _overlay_tag: String = ""
+var _fade_rect: ColorRect
 
 var _feedback_gen: int = 0
 var _feedback_locked: bool = false
@@ -190,6 +192,16 @@ func _build_ui() -> void:
 
 	_build_action_buttons(outer_vbox)
 	_build_nav_row(outer_vbox)
+
+	# Fade overlay — always topmost
+	_fade_rect = ColorRect.new()
+	_fade_rect.color = Color(0, 0, 0, 1)
+	_fade_rect.set_anchors_and_offsets_preset(Control.PRESET_FULL_RECT)
+	_fade_rect.mouse_filter = Control.MOUSE_FILTER_IGNORE
+	add_child(_fade_rect)
+	# Fade in from black on scene load
+	var fade_in: Tween = create_tween()
+	fade_in.tween_property(_fade_rect, "modulate:a", 0.0, 0.30)
 
 func _add_bg() -> void:
 	var bg: ColorRect = ColorRect.new()
@@ -342,6 +354,11 @@ func _build_nav_row(parent: VBoxContainer) -> void:
 	row.alignment = BoxContainer.ALIGNMENT_CENTER
 	row.add_theme_constant_override("separation", 16)
 	parent.add_child(row)
+
+	var menu_btn: Button = _make_ghost_btn("← Izbornik")
+	menu_btn.pressed.connect(_go_to_menu)
+	menu_btn.theme_type_variation = "GhostButton"
+	row.add_child(menu_btn)
 
 	var prev_btn: Button = _make_ghost_btn("◀  Prethodni")
 	prev_btn.pressed.connect(func() -> void: _navigate_puzzle(-1))
@@ -1185,6 +1202,15 @@ func _on_new_set() -> void:
 	_update_session_label()
 	_close_overlay()
 	_load_puzzle(0)
+
+func _go_to_menu() -> void:
+	_close_overlay()
+	_fade_rect.modulate = Color(1, 1, 1, 0)
+	var t: Tween = create_tween()
+	t.tween_property(_fade_rect, "modulate:a", 1.0, ANIM_FADE_OUT) \
+		.set_trans(Tween.TRANS_SINE)
+	await t.finished
+	get_tree().change_scene_to_file("res://scenes/main_menu.tscn")
 
 func _navigate_puzzle(direction: int) -> void:
 	_current_puzzle_index = (_current_puzzle_index + direction) % _puzzles.size()
