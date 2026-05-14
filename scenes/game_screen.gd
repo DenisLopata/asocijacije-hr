@@ -15,9 +15,13 @@ const ANIM_FEEDBACK_POP := 0.20
 const ANIM_SOLVED_ROW   := 0.30
 const ANIM_PRESS_DIP    := 0.07
 const ANIM_PRESS_RISE   := 0.13
-const ANIM_SCORE        := 0.45
-const ANIM_FADE_OUT     := 0.35
-const FEEDBACK_AUTO_HIDE := 3.5
+const ANIM_SCORE           := 0.45
+const ANIM_FADE_OUT        := 0.35
+const ANIM_FEEDBACK_SLIDE  := 0.28
+const FEEDBACK_AUTO_HIDE   := 3.5
+const FEEDBACK_ONE_AWAY_HIDE := 4.5
+
+enum FeedbackType { CORRECT, WRONG, ONE_AWAY, HINT, END }
 
 # ── Palette ────────────────────────────────────────────────────────────────
 const C_BG          := Color(0.07, 0.08, 0.11)
@@ -84,7 +88,9 @@ var _shuffle_btn: Button
 var _hint_btn: Button
 var _solved_container: VBoxContainer
 var _feedback_panel: PanelContainer
+var _feedback_icon: Label
 var _feedback_label: Label
+var _feedback_accent: ColorRect
 var _puzzle_counter: Label
 var _session_label: Label
 var _tile_buttons: Dictionary = {}
@@ -285,16 +291,49 @@ func _build_grid_area(parent: VBoxContainer) -> void:
 func _build_feedback_area(parent: VBoxContainer) -> void:
 	_feedback_panel = PanelContainer.new()
 	_feedback_panel.visible = false
-	_feedback_panel.custom_minimum_size = Vector2(0, 42)
-	_feedback_panel.theme_type_variation = "FeedbackPanel"
+	_feedback_panel.mouse_filter = Control.MOUSE_FILTER_STOP
+	_feedback_panel.gui_input.connect(_on_feedback_tapped)
 	parent.add_child(_feedback_panel)
 
+	# Left accent bar — coloured strip indicating message type
+	_feedback_accent = ColorRect.new()
+	_feedback_accent.custom_minimum_size = Vector2(5, 0)
+	_feedback_accent.size_flags_vertical = Control.SIZE_EXPAND_FILL
+
+	# Icon column
+	_feedback_icon = Label.new()
+	_feedback_icon.vertical_alignment = VERTICAL_ALIGNMENT_CENTER
+	_feedback_icon.add_theme_font_size_override("font_size", 20)
+	_feedback_icon.custom_minimum_size = Vector2(36, 0)
+	_feedback_icon.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
+
+	# Message text — wraps for long hint messages
 	_feedback_label = Label.new()
 	_feedback_label.theme_type_variation = "FeedbackLabel"
-	_feedback_label.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
 	_feedback_label.vertical_alignment = VERTICAL_ALIGNMENT_CENTER
-	_feedback_label.size_flags_vertical = Control.SIZE_EXPAND_FILL
-	_feedback_panel.add_child(_feedback_label)
+	_feedback_label.size_flags_horizontal = Control.SIZE_EXPAND_FILL
+	_feedback_label.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
+
+	# Inner HBox: accent | icon | text
+	var hbox: HBoxContainer = HBoxContainer.new()
+	hbox.add_theme_constant_override("separation", 0)
+	hbox.add_child(_feedback_accent)
+
+	var inner: HBoxContainer = HBoxContainer.new()
+	inner.add_theme_constant_override("separation", 10)
+	inner.size_flags_horizontal = Control.SIZE_EXPAND_FILL
+	# padding left/right inside the coloured area
+	var pad_l: Control = Control.new()
+	pad_l.custom_minimum_size = Vector2(12, 0)
+	var pad_r: Control = Control.new()
+	pad_r.custom_minimum_size = Vector2(12, 0)
+	inner.add_child(pad_l)
+	inner.add_child(_feedback_icon)
+	inner.add_child(_feedback_label)
+	inner.add_child(pad_r)
+
+	hbox.add_child(inner)
+	_feedback_panel.add_child(hbox)
 
 func _build_mistakes_row(parent: VBoxContainer) -> void:
 	var row: HBoxContainer = HBoxContainer.new()
@@ -410,7 +449,7 @@ func _load_puzzle(index: int) -> void:
 			.set_delay(i * ANIM_DOT_STAGGER) \
 			.set_trans(Tween.TRANS_BACK).set_ease(Tween.EASE_OUT)
 
-	_feedback_panel.visible = false
+	_hide_feedback()
 	_submit_btn.disabled = true
 	_deselect_btn.disabled = true
 	_set_submit_ready(false)
@@ -564,36 +603,89 @@ func _make_font(weight: int) -> FontVariation:
 	return fv
 
 # ── Feedback helpers ───────────────────────────────────────────────────────
-func _show_feedback(msg: String, color: Color, persistent: bool = false) -> void:
-	_feedback_panel.modulate = Color.WHITE
-	_feedback_label.text = msg
-	_feedback_label.add_theme_color_override("font_color", color)
-	_feedback_panel.visible = true
+const _FEEDBACK_CFG := {
+	FeedbackType.CORRECT:  { "icon": "✓",  "bg": Color(0.14, 0.26, 0.20), "accent": Color(0.30, 0.85, 0.55), "text": Color(0.75, 0.97, 0.82) },
+	FeedbackType.WRONG:    { "icon": "✕",  "bg": Color(0.26, 0.13, 0.14), "accent": Color(0.90, 0.35, 0.35), "text": Color(0.97, 0.72, 0.72) },
+	FeedbackType.ONE_AWAY: { "icon": "◎",  "bg": Color(0.26, 0.22, 0.10), "accent": Color(0.95, 0.65, 0.20), "text": Color(0.99, 0.88, 0.62) },
+	FeedbackType.HINT:     { "icon": "💡", "bg": Color(0.18, 0.20, 0.10), "accent": Color(0.95, 0.78, 0.25), "text": Color(0.99, 0.93, 0.70) },
+	FeedbackType.END:      { "icon": "★",  "bg": Color(0.10, 0.17, 0.26), "accent": Color(0.45, 0.55, 1.00), "text": Color(0.80, 0.88, 1.00) },
+}
+
+func _show_typed_feedback(type: FeedbackType, msg: String, persistent: bool = false) -> void:
+	var cfg: Dictionary = _FEEDBACK_CFG[type]
+
+	# Style the panel background
+	var bg_style: StyleBoxFlat = _rounded_box(cfg["bg"], RADIUS_TILE)
+	bg_style.content_margin_top    = 12
+	bg_style.content_margin_bottom = 12
+	bg_style.content_margin_left   = 0
+	bg_style.content_margin_right  = 0
+	_feedback_panel.add_theme_stylebox_override("panel", bg_style)
+
+	_feedback_accent.color = cfg["accent"]
+	_feedback_icon.text    = cfg["icon"]
+	_feedback_icon.add_theme_color_override("font_color", cfg["accent"])
+	_feedback_label.text   = msg
+	_feedback_label.add_theme_color_override("font_color", cfg["text"])
+
 	if persistent:
 		_feedback_locked = true
-	elif not _feedback_locked:
+
+	# Slide in from above if not yet visible, otherwise just update content
+	var was_visible: bool = _feedback_panel.visible
+	_feedback_panel.visible = true
+
+	if not was_visible:
+		# Scale from slightly above (Y < 1.0) + fade in — layout-safe inside VBox
+		_feedback_panel.scale    = Vector2(1.0, 0.6)
+		_feedback_panel.modulate = Color(1, 1, 1, 0)
+		var t: Tween = create_tween().set_parallel(true)
+		t.tween_property(_feedback_panel, "scale",    Vector2.ONE,    ANIM_FEEDBACK_SLIDE) \
+			.set_trans(Tween.TRANS_BACK).set_ease(Tween.EASE_OUT)
+		t.tween_property(_feedback_panel, "modulate", Color.WHITE, ANIM_FEEDBACK_SLIDE * 0.8)
+	else:
+		# Already visible — quick flash to draw attention to new content
+		var t: Tween = create_tween()
+		t.tween_property(_feedback_panel, "modulate", Color(1.2, 1.2, 1.2, 1.0), 0.07)
+		t.tween_property(_feedback_panel, "modulate", Color.WHITE, 0.10)
+
+	if not persistent and not _feedback_locked:
+		var hide_delay: float = FEEDBACK_ONE_AWAY_HIDE if type == FeedbackType.ONE_AWAY \
+			else FEEDBACK_AUTO_HIDE
 		_feedback_gen += 1
-		_schedule_feedback_hide(_feedback_gen)
+		_schedule_feedback_hide(_feedback_gen, hide_delay)
 
-func _show_feedback_animated(msg: String, color: Color) -> void:
-	_show_feedback(msg, color)
-	_feedback_panel.scale    = Vector2(0.90, 0.90)
-	_feedback_panel.modulate = Color(1, 1, 1, 0)
-	var tween: Tween = create_tween().set_parallel(true)
-	tween.tween_property(_feedback_panel, "scale", Vector2.ONE, ANIM_FEEDBACK_POP) \
-		.set_trans(Tween.TRANS_BACK).set_ease(Tween.EASE_OUT)
-	tween.tween_property(_feedback_panel, "modulate", Color.WHITE, ANIM_FEEDBACK_POP * 0.75)
+func _on_feedback_tapped(event: InputEvent) -> void:
+	if event is InputEventMouseButton and event.pressed:
+		_dismiss_feedback()
 
-func _schedule_feedback_hide(gen: int) -> void:
-	await get_tree().create_timer(FEEDBACK_AUTO_HIDE).timeout
+func _dismiss_feedback() -> void:
+	if not _feedback_panel.visible or _feedback_locked:
+		return
+	_feedback_gen += 1
+	var t: Tween = create_tween()
+	t.tween_property(_feedback_panel, "modulate:a", 0.0, 0.18)
+	await t.finished
+	_feedback_panel.visible  = false
+	_feedback_panel.modulate = Color.WHITE
+
+func _schedule_feedback_hide(gen: int, delay: float) -> void:
+	await get_tree().create_timer(delay).timeout
 	if gen != _feedback_gen or _feedback_locked:
 		return
 	var t: Tween = create_tween()
-	t.tween_property(_feedback_panel, "modulate:a", 0.0, 0.3)
+	t.tween_property(_feedback_panel, "modulate:a", 0.0, 0.30)
 	await t.finished
 	if gen == _feedback_gen and not _feedback_locked:
-		_feedback_panel.visible = false
+		_feedback_panel.visible  = false
 		_feedback_panel.modulate = Color.WHITE
+
+# Legacy thin wrapper kept so _load_puzzle can hide the panel
+func _hide_feedback() -> void:
+	_feedback_gen += 1
+	_feedback_locked = false
+	_feedback_panel.visible  = false
+	_feedback_panel.modulate = Color.WHITE
 
 # ── Signal handlers ────────────────────────────────────────────────────────
 func _on_selection_changed(selected: Array[String]) -> void:
@@ -609,7 +701,7 @@ func _on_selection_changed(selected: Array[String]) -> void:
 	_deselect_btn.disabled = selected.is_empty()
 
 func _on_guess_correct(category: PuzzleData.Category) -> void:
-	_show_feedback("✓  Točno!  —  " + category.name, C_WIN)
+	_show_typed_feedback(FeedbackType.CORRECT, "Točno!  —  " + category.name)
 	_submit_btn.disabled = true
 	_deselect_btn.disabled = true
 
@@ -683,9 +775,9 @@ func _on_guess_wrong(words: Array[String], one_away: bool) -> void:  # (#5: use 
 			var ot: Tween = create_tween()
 			ot.tween_property(obtn, "modulate", Color(1.0, 0.65, 0.15, 1.0), 0.15)
 			ot.tween_property(obtn, "modulate", Color.WHITE, 0.35)
-		_show_feedback_animated("Samo jedan pojam je krivo!", C_ONE_AWAY)
+		_show_typed_feedback(FeedbackType.ONE_AWAY, "Samo jedan pojam je krivo!")
 	else:
-		_show_feedback("Netočno — pokušaj opet", C_TEXT_DIM)
+		_show_typed_feedback(FeedbackType.WRONG, "Netočno — pokušaj opet")
 
 	SaveManager.save_session.call_deferred(_puzzles, _current_puzzle_index, _state)
 
@@ -706,7 +798,7 @@ func _flash_tiles_wrong(btns: Array[Button]) -> void:  # (#1)
 
 func _on_game_won() -> void:
 	var gen := _state_generation  # capture before await (#4)
-	_show_feedback("Čestitamo!  Riješili ste slagalicu!", C_WIN, true)
+	_show_typed_feedback(FeedbackType.END, "Čestitamo!  Riješili ste slagalicu!", true)
 	_submit_btn.disabled = true
 	_set_submit_ready(false)
 	_record_session_score(_state.score)
@@ -718,7 +810,7 @@ func _on_game_won() -> void:
 
 func _on_game_lost() -> void:
 	var gen := _state_generation
-	_show_feedback("Igra završena — ostali ste bez pokušaja", C_LOSE, true)
+	_show_typed_feedback(FeedbackType.END, "Igra završena — ostali ste bez pokušaja", true)
 	_submit_btn.disabled = true
 	_set_submit_ready(false)
 	_reveal_all()
@@ -1148,7 +1240,7 @@ func _on_hint() -> void:
 	_state.use_hint()
 
 func _on_hint_peek(category_name: String, hints_left: int) -> void:
-	_show_feedback("💡  Jedna kategorija je: \"%s\"  —  još %d hint" % [category_name, hints_left], C_MISTAKE_ON)
+	_show_typed_feedback(FeedbackType.HINT, "Jedna kategorija je: \"%s\"  —  još %d hint" % [category_name, hints_left])
 	_update_hint_btn()
 	_highlight_peeked_category(category_name)
 
@@ -1156,7 +1248,7 @@ func _on_hint_solve(category: PuzzleData.Category, hints_left: int) -> void:
 	var msg: String = "💡  Riješena kategorija: \"%s\"" % category.name
 	if hints_left > 0:
 		msg += "  —  još %d hint" % hints_left
-	_show_feedback(msg, C_MISTAKE_ON)
+	_show_typed_feedback(FeedbackType.HINT, msg)
 	_update_hint_btn()
 	_add_solved_row_animated(category)
 	_rebuild_grid()
