@@ -334,11 +334,11 @@ func _on_settings() -> void:
 	save_info.theme_type_variation = "MetaLabel"
 	vbox.add_child(save_info)
 
-	var clear_btn: Button = _make_small_btn("Obriši pohranjen napredak")
+	var clear_btn: Button = _make_small_btn("Obriši pohranjeni napredak")
 	clear_btn.custom_minimum_size = Vector2(300, 42)
 	clear_btn.pressed.connect(func() -> void:
 		SaveManager.clear_save()
-		save_info.text = "Pohrana obrisana."
+		save_info.text = "Napredak je obrisan."
 		# Reload menu so Continue button disappears
 		get_tree().reload_current_scene())
 	vbox.add_child(clear_btn)

@@ -361,7 +361,7 @@ func _build_action_buttons(parent: VBoxContainer) -> void:
 	parent.add_child(row)
 
 	_shuffle_btn  = _make_ghost_btn("↺  Pomiješaj")
-	_deselect_btn = _make_ghost_btn("✕  Odznači")
+	_deselect_btn = _make_ghost_btn("✕  Poništi odabir")
 	_submit_btn   = _make_submit_btn()
 	_hint_btn     = _make_hint_btn()
 
@@ -775,9 +775,9 @@ func _on_guess_wrong(words: Array[String], one_away: bool) -> void:  # (#5: use 
 			var ot: Tween = create_tween()
 			ot.tween_property(obtn, "modulate", Color(1.0, 0.65, 0.15, 1.0), 0.15)
 			ot.tween_property(obtn, "modulate", Color.WHITE, 0.35)
-		_show_typed_feedback(FeedbackType.ONE_AWAY, "Samo jedan pojam je krivo!")
+		_show_typed_feedback(FeedbackType.ONE_AWAY, "Jedan pojam ne odgovara!")
 	else:
-		_show_typed_feedback(FeedbackType.WRONG, "Netočno — pokušaj opet")
+		_show_typed_feedback(FeedbackType.WRONG, "Nije točno — pokušaj ponovo")
 
 	SaveManager.save_session.call_deferred(_puzzles, _current_puzzle_index, _state)
 
@@ -946,7 +946,7 @@ func _show_summary(won: bool) -> void:
 	for pair in [
 		["Kategorije", "%d / %d" % [summary["solved_count"], summary["total_count"]]],
 		["Greške",     "%d / %d" % [summary["mistakes_used"], GameState.MAX_MISTAKES]],
-		["Hinteri",    "%d" % summary["hints_used"]],
+		["Hintovi",    "%d" % summary["hints_used"]],
 	]:
 		_add_stat_row(vbox, pair[0], pair[1])
 
@@ -954,7 +954,7 @@ func _show_summary(won: bool) -> void:
 		var total: int = 0
 		for s in _session_scores:
 			total += s
-		_add_stat_row(vbox, "Ukupno u setu", "%d" % total)
+		_add_stat_row(vbox, "Ukupno u skupu", "%d" % total)
 
 	_add_separator(vbox)
 
@@ -982,7 +982,7 @@ func _show_summary(won: bool) -> void:
 		var pts_lbl: Label = Label.new()
 		if solved and cat.name in cat_scores:
 			var pts: int = cat_scores[cat.name]
-			pts_lbl.text = "%d pt" % pts
+			pts_lbl.text = "%d bod" % pts
 			pts_lbl.add_theme_color_override("font_color", C_WIN if pts > 0 else C_TEXT_DIM)
 		else:
 			pts_lbl.text = "—"
@@ -994,7 +994,7 @@ func _show_summary(won: bool) -> void:
 	if _state.guess_history.size() > 0:
 		_add_separator(vbox)
 		var hist_lbl: Label = Label.new()
-		hist_lbl.text = "Tijek igre"
+		hist_lbl.text = "Tijek rješavanja"
 		hist_lbl.theme_type_variation = "SubtitleLabel"
 		vbox.add_child(hist_lbl)
 
@@ -1093,12 +1093,12 @@ func _on_settings() -> void:
 	save_info.theme_type_variation = "MetaLabel"
 	vbox.add_child(save_info)
 
-	var clear_btn: Button = _make_ghost_btn("Obriši pohranjen napredak")
+	var clear_btn: Button = _make_ghost_btn("Obriši pohranjeni napredak")
 	clear_btn.theme_type_variation = "GhostButton"
 	clear_btn.custom_minimum_size = Vector2(300, 42)
 	clear_btn.pressed.connect(func() -> void:
 		SaveManager.clear_save()
-		save_info.text = "Pohrana obrisana.")
+		save_info.text = "Napredak je obrisan.")
 	vbox.add_child(clear_btn)
 
 	_add_separator(vbox)
