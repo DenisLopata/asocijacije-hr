@@ -42,22 +42,57 @@ const C_LOSE        := Color(0.90, 0.35, 0.35)
 const C_ONE_AWAY    := Color(0.95, 0.65, 0.20)
 
 const TILE_H      : int = 84
-const TILE_FONT   : int = 17
-const BTN_FONT    : int = 15
+const TILE_FONT   : int = 18
+const BTN_FONT    : int = 16
 const RADIUS_TILE : int = 14
 const RADIUS_BTN  : int = 22
 const BORDER_SEL  : int = 3
 
-const FONT_PATH := "res://assets/fonts/Nunito-VariableFont_wght.ttf"
+const FONT_PATH := "res://assets/fonts/Outfit-VariableFont_wght.ttf"
+
+const SPARKLE_INTENSITY: Dictionary = {
+	PuzzleData.Difficulty.YELLOW: 0.0,
+	PuzzleData.Difficulty.GREEN:  0.08,
+	PuzzleData.Difficulty.BLUE:   0.18,
+	PuzzleData.Difficulty.PURPLE: 0.35,
+}
 
 const SHIMMER_SHADER := "
 shader_type canvas_item;
-render_mode blend_add;
+
+uniform float spawn_time        = 0.0;
+uniform float sparkle_intensity = 0.0;
+
 void fragment() {
-	float t = mod(TIME * 0.3, 1.8);
-	float x = UV.x - t;
-	float shine = exp(-x * x * 30.0) * 0.20;
-	COLOR = vec4(shine, shine, shine, 1.0);
+	float age = TIME - spawn_time;
+
+	// One-shot diagonal sweep (first 1.6s)
+	float diag       = UV.x * 0.65 + UV.y * 0.35;
+	float sweep_dist = diag - age / 1.6;
+	float sweep      = exp(-sweep_dist * sweep_dist * 18.0)
+	                 * smoothstep(1.6, 0.6, age) * 0.38;
+
+	// Slow breathing (permanent)
+	float glow = (sin(TIME * 0.7 + 1.2) * 0.5 + 0.5) * 0.055;
+
+	// Star twinkles — tight gaussian + fast sharp flicker
+	float sparks = 0.0;
+	if (sparkle_intensity > 0.001) {
+		for (int i = 0; i < 8; i++) {
+			float fi    = float(i);
+			float speed = 1.2 + fi * 0.4;
+			float px    = fract(sin(fi * 127.1 + 43.2) * 4375.5);
+			float py    = fract(sin(fi * 311.7 + 12.8) * 5765.1);
+			float life  = sin(fract(TIME * speed + fi * 0.618) * 3.14159);
+			float dx    = UV.x - px;
+			float dy    = UV.y - py;
+			sparks += exp(-(dx*dx + dy*dy) * 4500.0) * life * life * life;
+		}
+		sparks *= sparkle_intensity * 0.35;
+	}
+
+	// Add brightness on top of the existing stylebox color
+	COLOR.rgb += sweep + glow + sparks;
 }
 "
 
@@ -79,6 +114,7 @@ var _current_puzzle_index: int = 0
 var _session_scores: Array[int] = []
 var _session_best: int = 0
 var _tile_font_override: int = 0
+var _is_daily: bool = false
 
 var _grid: GridContainer
 var _mistake_dots: Array[Panel] = []
@@ -110,23 +146,34 @@ func _ready() -> void:
 
 	var prefs := SaveManager.load_prefs()
 	_tile_font_override = prefs.get("tile_font_size", 0)
+	_session_best = prefs.get("best_score", 0)
 
-	var saved := SaveManager.load_session()
-	if saved.size() > 0:
-		_puzzles = saved["puzzles"]
-		_current_puzzle_index = saved["current_index"]
-		_build_ui()
-		_load_puzzle(_current_puzzle_index)
-		_restore_state(saved["state"])
-	else:
+	if get_tree().has_meta("daily_seed"):
+		_is_daily = true
+		var daily_seed: int = get_tree().get_meta("daily_seed")
+		get_tree().remove_meta("daily_seed")
+		seed(daily_seed)
 		_puzzles = PuzzleData.get_puzzles()
 		_build_ui()
 		_load_puzzle(_current_puzzle_index)
+	else:
+		var saved := SaveManager.load_session()
+		if saved.size() > 0:
+			_puzzles = saved["puzzles"]
+			_current_puzzle_index = saved["current_index"]
+			_build_ui()
+			_load_puzzle(_current_puzzle_index)
+			_restore_state(saved["state"])
+		else:
+			_puzzles = PuzzleData.get_puzzles()
+			_build_ui()
+			_load_puzzle(_current_puzzle_index)
 
 func _restore_state(data: Dictionary) -> void:
 	_state.mistakes_remaining = data["mistakes_remaining"]
 	_state.hints_remaining    = data["hints_remaining"]
 	_state.hints_used         = data["hints_used"]
+	_state.hint_multiplier    = data.get("hint_multiplier", 1.0)
 	_state.score              = data["score"]
 
 	for cat in _state.puzzle.categories:
@@ -240,7 +287,7 @@ func _build_header(parent: VBoxContainer) -> void:
 
 	var settings_btn: Button = Button.new()
 	settings_btn.text = "⚙"
-	settings_btn.custom_minimum_size = Vector2(40, 40)
+	settings_btn.custom_minimum_size = Vector2(44, 44)
 	settings_btn.theme_type_variation = "GhostButton"
 	settings_btn.pressed.connect(_on_settings)
 	title_row.add_child(settings_btn)
@@ -278,7 +325,7 @@ func _build_header(parent: VBoxContainer) -> void:
 
 func _build_solved_area(parent: VBoxContainer) -> void:
 	_solved_container = VBoxContainer.new()
-	_solved_container.add_theme_constant_override("separation", 7)
+	_solved_container.add_theme_constant_override("separation", 9)
 	parent.add_child(_solved_container)
 
 func _build_grid_area(parent: VBoxContainer) -> void:
@@ -304,7 +351,7 @@ func _build_feedback_area(parent: VBoxContainer) -> void:
 	_feedback_icon = Label.new()
 	_feedback_icon.vertical_alignment = VERTICAL_ALIGNMENT_CENTER
 	_feedback_icon.add_theme_font_size_override("font_size", 20)
-	_feedback_icon.custom_minimum_size = Vector2(36, 0)
+	_feedback_icon.custom_minimum_size = Vector2(40, 0)
 	_feedback_icon.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
 
 	# Message text — wraps for long hint messages
@@ -425,6 +472,7 @@ func _load_puzzle(index: int) -> void:
 	_state.guess_correct.connect(_on_guess_correct)
 	_state.guess_wrong.connect(_on_guess_wrong)
 	_state.hint_peek.connect(_on_hint_peek)
+	_state.hint_word.connect(_on_hint_word)
 	_state.hint_solve.connect(_on_hint_solve)
 	_state.score_changed.connect(_on_score_changed)
 	_state.game_won.connect(_on_game_won)
@@ -455,15 +503,20 @@ func _load_puzzle(index: int) -> void:
 	_set_submit_ready(false)
 	_update_hint_btn()
 
-	_puzzle_counter.text = "Slagalica %d/%d  %s" % [
-		index + 1, _puzzles.size(), _difficulty_badge(index)]
+	var prefix: String = "Dnevni  " if _is_daily else "Slagalica "
+	_puzzle_counter.text = "%s%d/%d  %s" % [
+		prefix, index + 1, _puzzles.size(), _difficulty_badge(_puzzles[index])]
 	_update_session_label()
 	_rebuild_grid()
 
-func _difficulty_badge(index: int) -> String:  # (#10)
-	if index <= 1:
+func _difficulty_badge(puzzle: PuzzleData.Puzzle) -> String:
+	var total: int = 0
+	for cat in puzzle.categories:
+		total += cat.rank
+	var avg: float = total / 4.0
+	if avg < 1.5:
 		return "⭐"
-	elif index <= 3:
+	elif avg < 2.5:
 		return "⭐⭐"
 	return "⭐⭐⭐"
 
@@ -484,9 +537,9 @@ func _rebuild_grid() -> void:
 func _effective_font_size(word: String) -> int:
 	var base: int = _tile_font_override if _tile_font_override > 0 else TILE_FONT
 	if word.length() > 12:
-		return maxi(base - 4, 11)
+		return maxi(base - 4, 13)
 	elif word.length() > 8:
-		return maxi(base - 2, 12)
+		return maxi(base - 2, 14)
 	return base
 
 func _make_tile(word: String) -> Button:
@@ -523,13 +576,13 @@ func _make_tile(word: String) -> Button:
 func _make_ghost_btn(label: String) -> Button:
 	var btn: Button = Button.new()
 	btn.text = label
-	btn.custom_minimum_size = Vector2(118, 42)
+	btn.custom_minimum_size = Vector2(118, 46)
 	return btn
 
 func _make_hint_btn() -> Button:
 	var btn: Button = Button.new()
 	btn.text = "💡  Hint  (%d)" % GameState.MAX_HINTS
-	btn.custom_minimum_size = Vector2(138, 42)
+	btn.custom_minimum_size = Vector2(138, 46)
 	return btn
 
 func _update_hint_btn() -> void:
@@ -743,7 +796,8 @@ func _on_guess_correct(category: PuzzleData.Category) -> void:
 
 	_rebuild_grid()
 	_add_solved_row_animated(category)
-	SaveManager.save_session.call_deferred(_puzzles, _current_puzzle_index, _state)  # (#27)
+	if not _is_daily:
+		SaveManager.save_session.call_deferred(_puzzles, _current_puzzle_index, _state)  # (#27)
 
 func _on_guess_wrong(words: Array[String], one_away: bool) -> void:  # (#5: use explicit words param)
 	var used: int = GameState.MAX_MISTAKES - _state.mistakes_remaining
@@ -779,7 +833,8 @@ func _on_guess_wrong(words: Array[String], one_away: bool) -> void:  # (#5: use 
 	else:
 		_show_typed_feedback(FeedbackType.WRONG, "Nije točno — pokušaj ponovo")
 
-	SaveManager.save_session.call_deferred(_puzzles, _current_puzzle_index, _state)
+	if not _is_daily:
+		SaveManager.save_session.call_deferred(_puzzles, _current_puzzle_index, _state)
 
 func _flash_tiles_wrong(btns: Array[Button]) -> void:  # (#1)
 	if btns.is_empty():
@@ -828,6 +883,7 @@ func _record_session_score(score: int) -> void:
 		total += s
 	if total > _session_best:
 		_session_best = total
+		SaveManager.save_best_score(_session_best)
 	_update_session_label()
 
 func _update_session_label() -> void:
@@ -872,16 +928,14 @@ func _add_solved_row(category: PuzzleData.Category) -> void:
 		extra_lbl.add_theme_font_override("font", _make_font(300))  # light hint text (#21)
 		vbox.add_child(extra_lbl)
 
-	# Shimmer overlay (#18)
-	var shimmer_rect: ColorRect = ColorRect.new()
-	shimmer_rect.set_anchors_and_offsets_preset(Control.PRESET_FULL_RECT)
-	shimmer_rect.mouse_filter = Control.MOUSE_FILTER_IGNORE
+	# Shimmer applied to the panel itself so it covers the full background (#18)
 	var smat := ShaderMaterial.new()
 	var sshader := Shader.new()
 	sshader.code = SHIMMER_SHADER
 	smat.shader = sshader
-	shimmer_rect.material = smat
-	row.add_child(shimmer_rect)
+	smat.set_shader_parameter("spawn_time", Time.get_ticks_msec() / 1000.0)
+	smat.set_shader_parameter("sparkle_intensity", SPARKLE_INTENSITY[category.difficulty])
+	row.material = smat
 
 	_solved_container.add_child(row)
 
@@ -1070,10 +1124,10 @@ func _on_settings() -> void:
 	fs_row.add_theme_constant_override("separation", 10)
 	vbox.add_child(fs_row)
 
-	for pair in [["Malo", 13], ["Srednje", 17], ["Veliko", 21]]:
+	for pair in [["Malo", 14], ["Srednje", 18], ["Veliko", 22]]:
 		var fs_btn: Button = _make_ghost_btn(pair[0])
 		fs_btn.theme_type_variation = "GhostButton"
-		fs_btn.custom_minimum_size = Vector2(100, 40)
+		fs_btn.custom_minimum_size = Vector2(100, 44)
 		var size_val: int = pair[1]
 		fs_btn.pressed.connect(func() -> void:
 			_tile_font_override = size_val
@@ -1095,7 +1149,7 @@ func _on_settings() -> void:
 
 	var clear_btn: Button = _make_ghost_btn("Obriši pohranjeni napredak")
 	clear_btn.theme_type_variation = "GhostButton"
-	clear_btn.custom_minimum_size = Vector2(300, 42)
+	clear_btn.custom_minimum_size = Vector2(300, 46)
 	clear_btn.pressed.connect(func() -> void:
 		SaveManager.clear_save()
 		save_info.text = "Napredak je obrisan.")
@@ -1116,9 +1170,9 @@ func _set_tile_font_size(size: int) -> void:
 		var btn: Button = _tile_buttons[word]
 		if is_instance_valid(btn):
 			var fs: int = size
-			if word.length() > 12 and size > 13:
+			if word.length() > 12 and size > 14:
 				fs = size - 4
-			elif word.length() > 8 and size > 13:
+			elif word.length() > 8 and size > 14:
 				fs = size - 2
 			btn.add_theme_font_size_override("font_size", fs)
 
@@ -1242,7 +1296,10 @@ func _on_hint() -> void:
 func _on_hint_peek(category_name: String, hints_left: int) -> void:
 	_show_typed_feedback(FeedbackType.HINT, "Jedna kategorija je: \"%s\"  —  još %d hint" % [category_name, hints_left])
 	_update_hint_btn()
-	_highlight_peeked_category(category_name)
+
+func _on_hint_word(category_name: String, word: String, hints_left: int) -> void:
+	_show_typed_feedback(FeedbackType.HINT, "Riječ \"%s\" pripada kategoriji \"%s\"  —  još %d hint" % [word, category_name, hints_left])
+	_update_hint_btn()
 
 func _on_hint_solve(category: PuzzleData.Category, hints_left: int) -> void:
 	var msg: String = "💡  Riješena kategorija: \"%s\"" % category.name
@@ -1252,7 +1309,8 @@ func _on_hint_solve(category: PuzzleData.Category, hints_left: int) -> void:
 	_update_hint_btn()
 	_add_solved_row_animated(category)
 	_rebuild_grid()
-	SaveManager.save_session.call_deferred(_puzzles, _current_puzzle_index, _state)
+	if not _is_daily:
+		SaveManager.save_session.call_deferred(_puzzles, _current_puzzle_index, _state)
 
 func _highlight_peeked_category(category_name: String) -> void:
 	for cat in _state.puzzle.categories:

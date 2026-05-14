@@ -5,6 +5,7 @@ signal selection_changed(selected: Array[String])
 signal guess_correct(category: PuzzleData.Category)
 signal guess_wrong(words: Array[String], one_away: bool)
 signal hint_peek(category_name: String, hints_left: int)
+signal hint_word(category_name: String, word: String, hints_left: int)
 signal hint_solve(category: PuzzleData.Category, hints_left: int)
 signal score_changed(total: int, gained: int)
 signal game_won()
@@ -12,7 +13,7 @@ signal game_lost()
 
 const MAX_MISTAKES: int = 4
 const MAX_SELECTION: int = 4
-const MAX_HINTS: int = 2
+const MAX_HINTS: int = 3
 
 const BASE_POINTS: Dictionary = {
 	PuzzleData.Difficulty.YELLOW:  100,
@@ -21,6 +22,7 @@ const BASE_POINTS: Dictionary = {
 	PuzzleData.Difficulty.PURPLE:  400,
 }
 const MISTAKE_MULTIPLIERS: Array = [1.0, 0.75, 0.50, 0.25, 0.0]
+const HINT_MULTIPLIERS: Array  = [1.0, 0.75, 0.50, 0.25]
 
 var puzzle: PuzzleData.Puzzle
 var selected_words: Array[String] = []
@@ -28,6 +30,7 @@ var solved_categories: Array = []
 var mistakes_remaining: int = MAX_MISTAKES
 var hints_remaining: int = MAX_HINTS
 var hints_used: int = 0
+var hint_multiplier: float = 1.0
 var score: int = 0
 var category_scores: Dictionary = {}
 var _peeked_category: PuzzleData.Category = null
@@ -67,7 +70,7 @@ func submit_guess() -> void:
 			var empty: Array[String] = []
 			selection_changed.emit(empty)
 			var mistakes_used: int = MAX_MISTAKES - mistakes_remaining
-			var multiplier: float = MISTAKE_MULTIPLIERS[mistakes_used]
+			var multiplier: float = MISTAKE_MULTIPLIERS[mistakes_used] * hint_multiplier
 			var gained: int = int(BASE_POINTS[cat.difficulty] * multiplier)
 			score += gained
 			category_scores[cat.name] = gained
@@ -133,16 +136,35 @@ func use_hint() -> void:
 		return
 	hints_remaining -= 1
 	hints_used += 1
+	hint_multiplier = HINT_MULTIPLIERS[hints_used]
 	selected_words.clear()
 	var empty: Array[String] = []
 	selection_changed.emit(empty)
 
-	if hints_remaining == MAX_HINTS - 1:
+	if hints_used == 1:
+		# Hint 1: reveal category name
 		_peeked_category = _hardest_unsolved()
 		hint_peek.emit(_peeked_category.name, hints_remaining)
+	elif hints_used == 2:
+		# Hint 2: reveal one word from peeked category (or new one if already solved)
+		var target: PuzzleData.Category
+		if _peeked_category != null and _peeked_category not in solved_categories:
+			target = _peeked_category
+		else:
+			target = _hardest_unsolved()
+			_peeked_category = target
+		var unsolved_words: Array[String] = []
+		for w in target.words:
+			if not is_word_solved(w):
+				unsolved_words.append(w)
+		var revealed: String = unsolved_words[randi() % unsolved_words.size()]
+		hint_word.emit(target.name, revealed, hints_remaining)
 	else:
-		var target: PuzzleData.Category = _peeked_category if _peeked_category != null else _hardest_unsolved()
-		if target in solved_categories:
+		# Hint 3: auto-solve hardest unsolved
+		var target: PuzzleData.Category
+		if _peeked_category != null and _peeked_category not in solved_categories:
+			target = _peeked_category
+		else:
 			target = _hardest_unsolved()
 		_peeked_category = null
 		solved_categories.append(target)

@@ -149,6 +149,15 @@ func _build_buttons(parent: VBoxContainer) -> void:
 		"action": func() -> void: _go_to_game(true),
 	})
 
+	var today := Time.get_date_dict_from_system()
+	var daily_seed: int = today["year"] * 10000 + today["month"] * 100 + today["day"]
+	btns.append({
+		"label": "Dnevni izazov",
+		"sub":   "%d.%02d.%d." % [today["day"], today["month"], today["year"]],
+		"style": "daily",
+		"action": func() -> void: _go_to_daily(daily_seed),
+	})
+
 	btns.append({
 		"label":  "Postavke",
 		"sub":    "",
@@ -193,7 +202,7 @@ func _build_bottom_bar() -> void:
 		var exit_btn: Button = Button.new()
 		exit_btn.text = "Izlaz"
 		exit_btn.theme_type_variation = "GhostButton"
-		exit_btn.custom_minimum_size = Vector2(90, 36)
+		exit_btn.custom_minimum_size = Vector2(90, 44)
 		exit_btn.pressed.connect(func() -> void: get_tree().quit())
 		bar.add_child(exit_btn)
 
@@ -208,6 +217,7 @@ func _make_menu_btn(label: String, subtitle: String, style: String) -> Button:
 	match style:
 		"continue": bg_color = C_SUBMIT_ON
 		"primary":  bg_color = Color(0.28, 0.35, 0.65)
+		"daily":    bg_color = Color(0.50, 0.32, 0.68)
 		_:          bg_color = Color(0.17, 0.19, 0.25)
 
 	var normal: StyleBoxFlat = _rounded_box(bg_color, RADIUS_BTN)
@@ -247,7 +257,7 @@ func _make_menu_btn(label: String, subtitle: String, style: String) -> Button:
 		sub_lbl.text = subtitle
 		sub_lbl.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
 		sub_lbl.add_theme_font_override("font", _make_font(300))
-		sub_lbl.add_theme_font_size_override("font_size", 13)
+		sub_lbl.add_theme_font_size_override("font_size", 15)
 		sub_lbl.add_theme_color_override("font_color", C_TEXT.darkened(0.15))
 		sub_lbl.mouse_filter = Control.MOUSE_FILTER_IGNORE
 		vbox.add_child(sub_lbl)
@@ -276,6 +286,15 @@ func _go_to_game(clear_save: bool) -> void:
 	if clear_save:
 		SaveManager.clear_save()
 	# Fade to black then switch scene
+	_fade_rect.modulate = Color(1, 1, 1, 0)
+	var t: Tween = create_tween()
+	t.tween_property(_fade_rect, "modulate:a", 1.0, ANIM_FADE_OUT) \
+		.set_trans(Tween.TRANS_SINE)
+	await t.finished
+	get_tree().change_scene_to_file("res://scenes/game_screen.tscn")
+
+func _go_to_daily(seed: int) -> void:
+	get_tree().set_meta("daily_seed", seed)
 	_fade_rect.modulate = Color(1, 1, 1, 0)
 	var t: Tween = create_tween()
 	t.tween_property(_fade_rect, "modulate:a", 1.0, ANIM_FADE_OUT) \
@@ -316,7 +335,7 @@ func _on_settings() -> void:
 	fs_row.add_theme_constant_override("separation", 10)
 	vbox.add_child(fs_row)
 
-	for pair in [["Malo", 13], ["Srednje", 17], ["Veliko", 21]]:
+	for pair in [["Malo", 14], ["Srednje", 18], ["Veliko", 22]]:
 		var fs_btn: Button = _make_small_btn(pair[0])
 		var size_val: int = pair[1]
 		fs_btn.pressed.connect(func() -> void: SaveManager.save_prefs(size_val))
@@ -335,7 +354,7 @@ func _on_settings() -> void:
 	vbox.add_child(save_info)
 
 	var clear_btn: Button = _make_small_btn("Obriši pohranjeni napredak")
-	clear_btn.custom_minimum_size = Vector2(300, 42)
+	clear_btn.custom_minimum_size = Vector2(300, 46)
 	clear_btn.pressed.connect(func() -> void:
 		SaveManager.clear_save()
 		save_info.text = "Napredak je obrisan."
@@ -408,7 +427,7 @@ func _make_small_btn(label: String) -> Button:
 	var btn: Button = Button.new()
 	btn.text = label
 	btn.theme_type_variation = "GhostButton"
-	btn.custom_minimum_size = Vector2(100, 40)
+	btn.custom_minimum_size = Vector2(100, 44)
 	return btn
 
 # ── Style helpers ──────────────────────────────────────────────────────────

@@ -188,7 +188,7 @@ content_margin_bottom = 4.0
 
 [resource]
 default_font = ExtResource("Font_Nunito")
-default_font_size = 15
+default_font_size = 16
 
 type_variation/TileButton = &"Button"
 type_variation/GhostButton = &"Button"
@@ -206,7 +206,7 @@ TileButton/colors/font_color         = Color(0.96, 0.96, 0.98, 1)
 TileButton/colors/font_hover_color   = Color(1.0, 1.0, 1.0, 1)
 TileButton/colors/font_pressed_color = Color(0.85, 0.90, 1.0, 1)
 TileButton/colors/font_focus_color   = Color(0.96, 0.96, 0.98, 1)
-TileButton/font_sizes/font_size      = 17
+TileButton/font_sizes/font_size      = 18
 TileButton/styles/normal             = SubResource("SBF_TN")
 TileButton/styles/hover              = SubResource("SBF_TH")
 TileButton/styles/pressed            = SubResource("SBF_TP")
@@ -218,7 +218,7 @@ GhostButton/colors/font_hover_color    = Color(1.0, 1.0, 1.0, 1)
 GhostButton/colors/font_pressed_color  = Color(0.80, 0.85, 1.0, 1)
 GhostButton/colors/font_focus_color    = Color(0.85, 0.87, 0.95, 1)
 GhostButton/colors/font_disabled_color = Color(0.38, 0.38, 0.43, 1)
-GhostButton/font_sizes/font_size       = 15
+GhostButton/font_sizes/font_size       = 16
 GhostButton/styles/normal              = SubResource("SBF_GN")
 GhostButton/styles/hover               = SubResource("SBF_GH")
 GhostButton/styles/pressed             = SubResource("SBF_GP")
@@ -230,7 +230,7 @@ HintButton/colors/font_hover_color    = Color(1.0, 0.96, 0.55, 1)
 HintButton/colors/font_pressed_color  = Color(0.90, 0.75, 0.20, 1)
 HintButton/colors/font_focus_color    = Color(1.0, 0.85, 0.30, 1)
 HintButton/colors/font_disabled_color = Color(0.38, 0.38, 0.43, 1)
-HintButton/font_sizes/font_size       = 15
+HintButton/font_sizes/font_size       = 16
 HintButton/styles/normal              = SubResource("SBF_HN")
 HintButton/styles/hover               = SubResource("SBF_HH")
 HintButton/styles/pressed             = SubResource("SBF_HP")
@@ -243,19 +243,19 @@ TitleLabel/colors/font_color   = Color(0.96, 0.96, 0.98, 1)
 TitleLabel/font_sizes/font_size = 38
 
 SubtitleLabel/colors/font_color    = Color(0.55, 0.56, 0.62, 1)
-SubtitleLabel/font_sizes/font_size = 14
+SubtitleLabel/font_sizes/font_size = 15
 
 MetaLabel/colors/font_color    = Color(0.55, 0.56, 0.62, 1)
-MetaLabel/font_sizes/font_size = 13
+MetaLabel/font_sizes/font_size = 14
 
 ScoreLabel/colors/font_color    = Color(0.45, 0.55, 1.0, 1)
-ScoreLabel/font_sizes/font_size = 13
+ScoreLabel/font_sizes/font_size = 14
 
 FeedbackLabel/colors/font_color    = Color(0.96, 0.96, 0.98, 1)
-FeedbackLabel/font_sizes/font_size = 15
+FeedbackLabel/font_sizes/font_size = 16
 
 SolvedCategoryLabel/colors/font_color    = Color(0.0, 0.0, 0.0, 0.65)
-SolvedCategoryLabel/font_sizes/font_size = 12
+SolvedCategoryLabel/font_sizes/font_size = 14
 
 SolvedWordsLabel/colors/font_color    = Color(0.05, 0.05, 0.08, 1)
-SolvedWordsLabel/font_sizes/font_size = 17
+SolvedWordsLabel/font_sizes/font_size = 18
