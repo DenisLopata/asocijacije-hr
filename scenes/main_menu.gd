@@ -79,6 +79,10 @@ func _unhandled_input(event: InputEvent) -> void:
 				if cfg.has_section(sec):
 					cfg.erase_section_key(sec, date_str + "_score")
 					cfg.erase_section_key(sec, date_str + "_time")
+			if cfg.has_section("submitted"):
+				for key in ["daily_" + date_str, "five_" + date_str]:
+					if cfg.has_section_key("submitted", key):
+						cfg.erase_section_key("submitted", key)
 			cfg.save(SaveManager.PREFS_PATH)
 			print("[DEBUG] Cleared daily results for ", date_str)
 			get_tree().reload_current_scene()
