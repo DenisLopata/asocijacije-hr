@@ -516,10 +516,10 @@ func _difficulty_badge(puzzle: PuzzleData.Puzzle) -> String:
 		total += cat.rank
 	var avg: float = total / 4.0
 	if avg < 1.5:
-		return "⭐"
+		return "[*]"
 	elif avg < 2.5:
-		return "⭐⭐"
-	return "⭐⭐⭐"
+		return "[**]"
+	return "[***]"
 
 func _rebuild_grid() -> void:
 	for child in _grid.get_children():
