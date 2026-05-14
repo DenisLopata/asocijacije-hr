@@ -24,9 +24,9 @@ const C_BTN_DONE    := Color(0.18, 0.20, 0.26)
 const RADIUS_BTN      : int = 22
 const FONT_PATH       := "res://assets/fonts/Outfit-VariableFont_wght.ttf"
 const ICON_FONT_PATH  := "res://assets/fonts/MaterialSymbolsOutlined.ttf"
-const VERSION         := "v0.1.0"
+const VERSION         := "v0.1.1"
 
-func _icon(name: String) -> String:
+func _icon(icon_name: String) -> String:
 	const CP := {
 		"calendar":    0xE935,
 		"timer":       0xE425,
@@ -36,8 +36,9 @@ func _icon(name: String) -> String:
 		"star":        0xF09A,
 		"leaderboard": 0xF20C,
 		"chevron":     0xE5CC,
+		"local_fire":  0xEF55,
 	}
-	return char(CP.get(name, 0x3F))
+	return char(CP.get(icon_name, 0x3F))
 
 func _icon_font() -> FontFile:
 	return load(ICON_FONT_PATH) as FontFile
@@ -110,6 +111,15 @@ func _unhandled_input(event: InputEvent) -> void:
 						cfg.erase_section_key("submitted", key)
 			cfg.save(SaveManager.PREFS_PATH)
 			print("[DEBUG] Cleared daily results for ", date_str)
+			get_tree().reload_current_scene()
+		if event.keycode == KEY_S and event.ctrl_pressed and event.shift_pressed:
+			var yesterday: String = SaveManager._yesterday(SaveManager.get_today()["date_str"])
+			var cfg := ConfigFile.new()
+			cfg.load(SaveManager.PREFS_PATH)
+			cfg.set_value("streak", "last_date", yesterday)
+			cfg.set_value("streak", "count", 5)
+			cfg.save(SaveManager.PREFS_PATH)
+			print("[DEBUG] Injected fake streak: 5 days, last=", yesterday)
 			get_tree().reload_current_scene()
 
 func _ready() -> void:
@@ -221,12 +231,16 @@ func _build_buttons(parent: VBoxContainer) -> void:
 	})
 
 	var daily_result := SaveManager.load_daily_result(date_str)
+	var streak: int = SaveManager.load_streak()
 	if daily_result.size() > 0:
-		btns.append(_done_btn("Dnevni izazov", daily_result, "daily", date_str))
+		btns.append(_done_btn("Dnevni izazov", daily_result, "daily", date_str, streak))
 	else:
+		var daily_sub := date_label
+		if streak >= 2:
+			daily_sub = "%s %d  •  %s" % [_icon("local_fire"), streak, date_label]
 		btns.append({
 			"label":  "Dnevni izazov",
-			"sub":    date_label,
+			"sub":    daily_sub,
 			"style":  "daily",
 			"action": func() -> void: _go_to_daily(daily_seed),
 		})
@@ -389,10 +403,13 @@ func _make_menu_btn(label: String, subtitle: String, style: String) -> Button:
 
 	return btn
 
-func _done_btn(label: String, result: Dictionary, mode: String, date_str: String) -> Dictionary:
+func _done_btn(label: String, result: Dictionary, mode: String, date_str: String, streak: int = 0) -> Dictionary:
+	var sub := "%s  %d bod  •  %s  %s  •  %s ljestvica" % [_icon("done"), result["score"], _icon("timer"), _fmt_time(result["time"]), _icon("leaderboard")]
+	if streak >= 2:
+		sub += "  •  %s %d" % [_icon("local_fire"), streak]
 	return {
 		"label":  label,
-		"sub":    "%s  %d bod  •  %s  %s  •  %s ljestvica" % [_icon("done"), result["score"], _icon("timer"), _fmt_time(result["time"]), _icon("leaderboard")],
+		"sub":    sub,
 		"style":  "daily_done",
 		"action": func() -> void: _show_leaderboard_overlay_menu(mode, date_str),
 	}
@@ -580,7 +597,8 @@ func _fmt_time(secs: float) -> String:
 	var s: int = int(secs)
 	if s < 60:
 		return "%ds" % s
-	return "%dm%02ds" % [s / 60, s % 60]
+	var mins: int = s / 60
+	return "%dm%02ds" % [mins, s % 60]
 
 func _make_leaderboard_row_menu(rank: int, entry: Dictionary, is_me: bool, odd: bool = false) -> Control:
 	var row := HBoxContainer.new()

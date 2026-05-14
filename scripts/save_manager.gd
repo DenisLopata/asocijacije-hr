@@ -160,6 +160,41 @@ static func get_today() -> Dictionary:
 		"five_seed":  daily_seed + 1,
 	}
 
+static func update_streak(date_str: String) -> void:
+	var cfg := ConfigFile.new()
+	cfg.load(PREFS_PATH)
+	var last: String = cfg.get_value("streak", "last_date", "")
+	var count: int   = cfg.get_value("streak", "count", 0)
+	if last == date_str:
+		return  # already counted today
+	var yesterday := _yesterday(date_str)
+	count = count + 1 if last == yesterday else 1
+	cfg.set_value("streak", "last_date", date_str)
+	cfg.set_value("streak", "count", count)
+	cfg.save(PREFS_PATH)
+
+static func load_streak() -> int:
+	var cfg := ConfigFile.new()
+	if cfg.load(PREFS_PATH) != OK:
+		return 0
+	var last: String = cfg.get_value("streak", "last_date", "")
+	if last.is_empty():
+		return 0
+	var today: String = get_today()["date_str"]
+	var yesterday := _yesterday(today)
+	if last != today and last != yesterday:
+		return 0  # streak expired
+	return cfg.get_value("streak", "count", 0)
+
+static func _yesterday(date_str: String) -> String:
+	var parts := date_str.split("-")
+	var unix := Time.get_unix_time_from_datetime_dict({
+		"year": int(parts[0]), "month": int(parts[1]), "day": int(parts[2]),
+		"hour": 12, "minute": 0, "second": 0
+	})
+	var d := Time.get_date_dict_from_unix_time(unix - 86400)
+	return "%d-%02d-%02d" % [d["year"], d["month"], d["day"]]
+
 static func load_prefs() -> Dictionary:
 	var cfg := ConfigFile.new()
 	if cfg.load(PREFS_PATH) != OK:

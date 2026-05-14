@@ -78,10 +78,10 @@ func ensure_authed() -> bool:
 		var refresh_token: String = cfg.get_value("firebase", "refresh_token", "")
 		_uid = cfg.get_value("firebase", "uid", "")
 		if refresh_token != "":
-			var resp = await _post_form(_REFRESH_URL,
+			var refresh_resp = await _post_form(_REFRESH_URL,
 				"grant_type=refresh_token&refresh_token=" + refresh_token)
-			if resp != null and resp.has("id_token"):
-				_id_token = resp["id_token"]
+			if refresh_resp != null and refresh_resp.has("id_token"):
+				_id_token = refresh_resp["id_token"]
 				return true
 
 	var resp = await _post_json(_AUTH_URL, {"returnSecureToken": true})
@@ -122,12 +122,12 @@ func mark_submitted(mode: String, date_str: String) -> void:
 
 # ── Leaderboard write ──────────────────────────────────────────────────────
 func submit_score(player_name: String, score: int, time_sec: float,
-		mode: String, date_str: String, seed: int) -> bool:
+		mode: String, date_str: String, puzzle_seed: int) -> bool:
 	_last_error = ""
 
 	if OS.get_name() == "Web":
 		var r = await _js_call("_fb_submit",
-			[player_name, score, time_sec, mode, date_str, seed])
+			[player_name, score, time_sec, mode, date_str, puzzle_seed])
 		if r[0] != 1:
 			_last_error = r[1] if r[1] != "" else "network_error"
 			print("FirebaseClient: submit_score failed — %s" % _last_error)
@@ -149,7 +149,7 @@ func submit_score(player_name: String, score: int, time_sec: float,
 			"mode":  {"stringValue": mode},
 			"date":  {"stringValue": date_str},
 			"uid":   {"stringValue": _uid},
-			"seed":  {"integerValue": str(seed)},
+			"seed":  {"integerValue": str(puzzle_seed)},
 		}
 	}
 	var resp = await _post_json(_FS_BASE + "/leaderboard", body, _id_token)
@@ -180,18 +180,18 @@ func fetch_leaderboard(mode: String, date_str: String, limit: int = 20) -> Array
 		var raw = JSON.parse_string(r[1])
 		if not raw is Array:
 			return []
-		var entries: Array = []
+		var web_entries: Array = []
 		for item in raw:
 			if not item is Dictionary:
 				continue
-			entries.append({
+			web_entries.append({
 				"name":  str(item.get("name", "")),
 				"score": int(item.get("score", 0)),
 				"time":  float(item.get("time", 0.0)),
 				"uid":   str(item.get("uid", "")),
 			})
-		_cache[cache_key] = entries
-		return entries
+		_cache[cache_key] = web_entries
+		return web_entries
 
 	# Non-web path
 	var body := {

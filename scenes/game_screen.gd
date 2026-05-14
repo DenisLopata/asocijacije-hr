@@ -52,7 +52,7 @@ const FONT_PATH      := "res://assets/fonts/Outfit-VariableFont_wght.ttf"
 const ICON_FONT_PATH := "res://assets/fonts/MaterialSymbolsOutlined.ttf"
 
 # Material Symbols Outlined codepoints -- use char() to avoid source encoding issues
-func _icon(name: String) -> String:
+func _icon(icon_name: String) -> String:
 	const CP := {
 		"settings":  0xE8B8,
 		"shuffle":   0xE043,
@@ -68,7 +68,7 @@ func _icon(name: String) -> String:
 		"cancel":    0xE888,
 		"undo":      0xE166,
 	}
-	return char(CP.get(name, 0x3F))
+	return char(CP.get(icon_name, 0x3F))
 
 const SPARKLE_INTENSITY: Dictionary = {
 	PuzzleData.Difficulty.YELLOW: 0.0,
@@ -1380,6 +1380,7 @@ func _on_name_confirmed(player_name: String) -> void:
 
 	if _is_daily:
 		SaveManager.save_daily_result(date_str, total_score, total_time)
+		SaveManager.update_streak(date_str)
 	elif _is_five_daily:
 		SaveManager.save_five_result(date_str, total_score, total_time)
 
@@ -1387,15 +1388,15 @@ func _on_name_confirmed(player_name: String) -> void:
 	_close_overlay()
 
 	if _is_daily or _is_five_daily:
-		var mode := "daily" if _is_daily else "five"
-		var seed  := daily_seed if _is_daily else daily_seed + 1
-		_show_submitting_overlay(player_name, total_score, total_time, mode, date_str, seed)
+		var mode         := "daily" if _is_daily else "five"
+		var puzzle_seed  := daily_seed if _is_daily else daily_seed + 1
+		_show_submitting_overlay(player_name, total_score, total_time, mode, date_str, puzzle_seed)
 	else:
 		_go_to_menu()
 
 # ── Submitting / leaderboard overlays ─────────────────────────────────────
 func _show_submitting_overlay(player_name: String, score: int, time_sec: float,
-		mode: String, date_str: String, seed: int) -> void:
+		mode: String, date_str: String, puzzle_seed: int) -> void:
 	if FirebaseClient.was_submitted(mode, date_str):
 		_show_leaderboard_overlay(mode, date_str, FirebaseClient.get_uid(), score, time_sec)
 		return
@@ -1415,7 +1416,7 @@ func _show_submitting_overlay(player_name: String, score: int, time_sec: float,
 
 	_animate_overlay_in(dim, panel)
 
-	var ok := await FirebaseClient.submit_score(player_name, score, time_sec, mode, date_str, seed)
+	var ok := await FirebaseClient.submit_score(player_name, score, time_sec, mode, date_str, puzzle_seed)
 	if not is_instance_valid(dim):
 		return
 
@@ -1432,7 +1433,7 @@ func _show_submitting_overlay(player_name: String, score: int, time_sec: float,
 	retry_btn.size_flags_horizontal = Control.SIZE_SHRINK_CENTER
 	retry_btn.pressed.connect(func() -> void:
 		_close_overlay()
-		_show_submitting_overlay(player_name, score, time_sec, mode, date_str, seed))
+		_show_submitting_overlay(player_name, score, time_sec, mode, date_str, puzzle_seed))
 	vbox.add_child(retry_btn)
 
 	var skip_btn := _make_ghost_btn("Odustani")
@@ -1442,7 +1443,7 @@ func _show_submitting_overlay(player_name: String, score: int, time_sec: float,
 		_go_to_menu())
 	vbox.add_child(skip_btn)
 
-func _show_leaderboard_overlay(mode: String, date_str: String, my_uid: String, my_score: int = -1, my_time: float = 0.0) -> void:
+func _show_leaderboard_overlay(mode: String, date_str: String, my_uid: String, my_score: int = -1, _my_time: float = 0.0) -> void:
 	var dim := _make_dim()
 	_overlay = dim
 	_overlay_tag = "leaderboard"
@@ -1589,7 +1590,7 @@ func _fmt_time(secs: float) -> String:
 	var s: int = int(secs)
 	if s < 60:
 		return "%ds" % s
-	return "%dm%02ds" % [s / 60, s % 60]
+	return "%dm%02ds" % [s / 60 as int, s % 60]
 
 # ── Settings overlay (#14, #18) ────────────────────────────────────────────
 func _on_settings() -> void:
@@ -1667,15 +1668,15 @@ func _on_settings() -> void:
 
 	_animate_overlay_in(dim, panel)
 
-func _set_tile_font_size(size: int) -> void:
+func _set_tile_font_size(tile_size: int) -> void:
 	for word in _tile_buttons:
 		var btn: Button = _tile_buttons[word]
 		if is_instance_valid(btn):
-			var fs: int = size
-			if word.length() > 12 and size > 14:
-				fs = size - 4
-			elif word.length() > 8 and size > 14:
-				fs = size - 2
+			var fs: int = tile_size
+			if word.length() > 12 and tile_size > 14:
+				fs = tile_size - 4
+			elif word.length() > 8 and tile_size > 14:
+				fs = tile_size - 2
 			btn.add_theme_font_size_override("font_size", fs)
 
 # ── Overlay helpers ────────────────────────────────────────────────────────
