@@ -9,10 +9,13 @@ const _FS_BASE     := "https://firestore.googleapis.com/v1/projects/" + PROJECT_
 
 var _id_token: String = ""
 var _uid: String = ""
+var _cache: Dictionary = {}
+var _last_error: String = ""
 
 # ── Low-level HTTP ─────────────────────────────────────────────────────────
 func _http(method: int, url: String, body: String, content_type: String, token: String = "") -> Variant:
 	var http := HTTPRequest.new()
+	http.timeout = 10.0
 	add_child(http)
 	var headers := PackedStringArray(["Content-Type: " + content_type])
 	if token != "":
@@ -54,7 +57,7 @@ func ensure_authed() -> bool:
 	# No stored token — create new anonymous user
 	var resp = await _post_json(_AUTH_URL, {"returnSecureToken": true})
 	if resp == null or not resp.has("idToken"):
-		push_warning("FirebaseClient: anonymous sign-in failed")
+		push_warning("FirebaseClient: anonymous sign-in failed — resp: %s" % str(resp))
 		return false
 
 	_id_token = resp["idToken"]
@@ -70,10 +73,28 @@ func ensure_authed() -> bool:
 func get_uid() -> String:
 	return _uid
 
+func get_last_error() -> String:
+	return _last_error
+
+# ── Submission dedup guard ─────────────────────────────────────────────────
+func was_submitted(mode: String, date_str: String) -> bool:
+	var cfg := ConfigFile.new()
+	if cfg.load(SaveManager.PREFS_PATH) != OK:
+		return false
+	return cfg.get_value("submitted", mode + "_" + date_str, false)
+
+func mark_submitted(mode: String, date_str: String) -> void:
+	var cfg := ConfigFile.new()
+	cfg.load(SaveManager.PREFS_PATH)
+	cfg.set_value("submitted", mode + "_" + date_str, true)
+	cfg.save(SaveManager.PREFS_PATH)
+
 # ── Leaderboard write ──────────────────────────────────────────────────────
 func submit_score(player_name: String, score: int, time_sec: float,
 		mode: String, date_str: String, seed: int) -> bool:
+	_last_error = ""
 	if not await ensure_authed():
+		_last_error = "auth_failed"
 		return false
 	var body := {
 		"fields": {
@@ -87,10 +108,25 @@ func submit_score(player_name: String, score: int, time_sec: float,
 		}
 	}
 	var resp = await _post_json(_FS_BASE + "/leaderboard", body, _id_token)
-	return resp != null
+	if resp == null:
+		# Token may be expired — force re-auth and retry once
+		_id_token = ""
+		if not await ensure_authed():
+			_last_error = "auth_failed"
+			return false
+		resp = await _post_json(_FS_BASE + "/leaderboard", body, _id_token)
+	if resp == null:
+		_last_error = "network_error"
+		push_warning("FirebaseClient: submit_score failed after retry")
+		return false
+	mark_submitted(mode, date_str)
+	return true
 
 # ── Leaderboard read ───────────────────────────────────────────────────────
 func fetch_leaderboard(mode: String, date_str: String, limit: int = 20) -> Array:
+	var cache_key := mode + "_" + date_str
+	if _cache.has(cache_key):
+		return _cache[cache_key]
 	var body := {
 		"structuredQuery": {
 			"from": [{"collectionId": "leaderboard"}],
@@ -128,15 +164,58 @@ func fetch_leaderboard(mode: String, date_str: String, limit: int = 20) -> Array
 		var fields: Dictionary = item["document"]["fields"]
 		entries.append({
 			"name":  _str(fields, "name"),
-			"score": int(_str(fields, "score")),
+			"score": int(_num(fields, "score")),
 			"time":  float(_num(fields, "time")),
 			"uid":   _str(fields, "uid"),
 		})
+	_cache[cache_key] = entries
 	return entries
+
+# ── Player rank (count players with higher score) ──────────────────────────
+func fetch_player_rank(mode: String, date_str: String, score: int) -> int:
+	var body := {
+		"structuredAggregationQuery": {
+			"structuredQuery": {
+				"from": [{"collectionId": "leaderboard"}],
+				"where": {
+					"compositeFilter": {
+						"op": "AND",
+						"filters": [
+							{"fieldFilter": {
+								"field": {"fieldPath": "mode"},
+								"op": "EQUAL",
+								"value": {"stringValue": mode}
+							}},
+							{"fieldFilter": {
+								"field": {"fieldPath": "date"},
+								"op": "EQUAL",
+								"value": {"stringValue": date_str}
+							}},
+							{"fieldFilter": {
+								"field": {"fieldPath": "score"},
+								"op": "GREATER_THAN",
+								"value": {"integerValue": str(score)}
+							}}
+						]
+					}
+				}
+			},
+			"aggregations": [{"count": {}, "alias": "count"}]
+		}
+	}
+	var resp = await _post_json(_FS_BASE + ":runAggregationQuery", body)
+	if not resp is Array or resp.is_empty():
+		return -1
+	var agg: Dictionary = resp[0].get("result", {}).get("aggregateFields", {})
+	var count_val = agg.get("count", {}).get("integerValue", "-1")
+	var count: int = int(str(count_val))
+	if count < 0:
+		return -1
+	return count + 1
 
 # ── Firestore field helpers ────────────────────────────────────────────────
 func _str(fields: Dictionary, key: String) -> String:
-	return fields.get(key, {}).get("stringValue", fields.get(key, {}).get("integerValue", ""))
+	return fields.get(key, {}).get("stringValue", "")
 
 func _num(fields: Dictionary, key: String) -> float:
 	var f: Dictionary = fields.get(key, {})

@@ -39,16 +39,17 @@ Three modes, all accessible from the main menu:
 
 - Daily seeds are deterministic — all players get the same puzzle on the same date.
 - "Once a day" is enforced client-side (device clock). Server-side validation via seed storage in Firestore is planned.
-- Completed daily modes show "Već odigrano • score • time" and are disabled for the rest of the day.
+- Completed daily modes show "Već odigrano • score • time" as a clickable button — tapping opens the leaderboard overlay.
 - `SaveManager.save_daily_result` / `load_daily_result` — single puzzle daily (prefs section `daily_single`)
 - `SaveManager.save_five_result` / `load_five_result` — five puzzle daily (prefs section `daily_five`)
+- `SaveManager.get_today()` — returns `{date_str, date_label, daily_seed, five_seed}`. Use this everywhere; do not compute date/seed inline.
 
 ## Game flow
 
 - Linear puzzle order — no skipping.
 - Per-puzzle timer starts on `_load_puzzle`, elapsed recorded in `_on_game_won` / `_on_game_lost`.
 - Mid-session progress saved to `save.cfg` (except daily modes which never write to save).
-- After the last puzzle: summary overlay → name picker → `_on_name_confirmed` → save result → menu.
+- After the last puzzle: summary overlay → name picker → `_on_name_confirmed` → save result → for daily modes: submitting overlay → leaderboard overlay → menu; for Nova igra: directly to menu.
 - Name picker: Croatian alphabet + digits + hyphen + space, 4–10 characters, OK disabled until 4 chars entered.
 - `_puzzle_times: Array[float]` and `_puzzle_scores: Array[int]` accumulate across puzzles in a session.
 
@@ -56,6 +57,7 @@ Three modes, all accessible from the main menu:
 
 In debug builds (`OS.is_debug_build()`) only — stripped from `--export-release`:
 - **Ctrl+D** on game screen: fills fake scores/times and opens name picker immediately.
+- **Ctrl+Shift+D** on game screen or main menu: clears today's daily results from prefs and reloads the scene.
 
 ## Key conventions
 
@@ -114,6 +116,7 @@ Words are stored lowercase in data, displayed `.to_upper()` in UI.
 - `SAVE_PATH` = `user://save.cfg` — in-progress session (puzzles, state, timers). Cleared on session end.
 - `PREFS_PATH` = `user://prefs.cfg` — persistent preferences and daily results. Never cleared.
 - Daily results stored in prefs under sections `daily_single` and `daily_five`, keyed by `YYYY-MM-DD`.
+- Firebase submission dedup flag stored in prefs under section `submitted`, keyed by `mode_YYYY-MM-DD`.
 
 ## CI/CD pipeline
 
@@ -130,7 +133,14 @@ Push to `main` triggers `.github/workflows/deploy.yml`:
 - **Project ID:** `asocijacije-hr`
 - **Hosting URL:** https://asocijacije-hr.web.app
 - **Config:** `firebase.json` — sets COOP/COEP headers required for Godot's WebAssembly
-- **Firestore:** planned — leaderboard collection, anonymous auth, server-side seed validation
+- **Firestore:** live — `leaderboard` collection, anonymous auth, composite index on `mode/date/score/time`
+- **`scripts/firebase_client.gd`** — autoload (`FirebaseClient`). Handles anonymous auth with refresh-token persistence, score submission with token-expiry retry, leaderboard reads with session cache, and player rank via aggregation query.
+  - `submit_score(name, score, time, mode, date_str, seed) -> bool` — writes to Firestore; retries once on 401; calls `mark_submitted` on success
+  - `fetch_leaderboard(mode, date_str) -> Array` — cached per session; each entry: `{name, score, time, uid}`
+  - `fetch_player_rank(mode, date_str, score) -> int` — count aggregation; returns rank or -1 on failure
+  - `was_submitted(mode, date_str) -> bool` / `mark_submitted(...)` — dedup guard in prefs
+  - `get_last_error() -> String` — `"auth_failed"` or `"network_error"` after a failed submit
+- **Known limitation:** no server-side score validation — a client can POST arbitrary values. Accepted risk for now.
 
 ## Known pitfalls
 

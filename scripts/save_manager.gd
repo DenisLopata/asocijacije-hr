@@ -150,6 +150,16 @@ static func _read_result(section: String, date_str: String) -> Dictionary:
 		"time":  cfg.get_value(section, date_str + "_time", 0.0),
 	}
 
+static func get_today() -> Dictionary:
+	var d := Time.get_date_dict_from_system()
+	var daily_seed: int = d["year"] * 10000 + d["month"] * 100 + d["day"]
+	return {
+		"date_str":   "%d-%02d-%02d" % [d["year"], d["month"], d["day"]],
+		"date_label": "%d.%02d.%d."  % [d["day"], d["month"], d["year"]],
+		"daily_seed": daily_seed,
+		"five_seed":  daily_seed + 1,
+	}
+
 static func load_prefs() -> Dictionary:
 	var cfg := ConfigFile.new()
 	if cfg.load(PREFS_PATH) != OK:

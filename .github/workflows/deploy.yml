@@ -42,7 +42,7 @@ jobs:
           cp assets/boot_splash.png export/web/index.png
           sed -i 's/background-color: #242424/background-color: #1c1c21/' export/web/index.html
 
-      - name: Deploy to Firebase Hosting
+      - name: Deploy to Firebase
         run: |
           npm install -g firebase-tools@13
-          firebase deploy --only hosting --token "${{ secrets.FIREBASE_TOKEN }}" --project asocijacije-hr
+          firebase deploy --only hosting,firestore --token "${{ secrets.FIREBASE_TOKEN }}" --project asocijacije-hr

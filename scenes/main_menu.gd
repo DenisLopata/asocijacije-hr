@@ -70,8 +70,7 @@ func _unhandled_input(event: InputEvent) -> void:
 		return
 	if event is InputEventKey and event.pressed and not event.echo:
 		if event.keycode == KEY_D and event.ctrl_pressed and event.shift_pressed:
-			var today := Time.get_date_dict_from_system()
-			var date_str := "%d-%02d-%02d" % [today["year"], today["month"], today["day"]]
+			var date_str: String = SaveManager.get_today()["date_str"]
 			var cfg := ConfigFile.new()
 			cfg.load(SaveManager.PREFS_PATH)
 			cfg.erase_section_key("daily_single", date_str + "_score")
@@ -174,11 +173,11 @@ func _build_logo(parent: VBoxContainer) -> void:
 func _build_buttons(parent: VBoxContainer) -> void:
 	var btns: Array[Dictionary] = []
 
-	var today := Time.get_date_dict_from_system()
-	var date_str := "%d-%02d-%02d" % [today["year"], today["month"], today["day"]]
-	var date_label := "%d.%02d.%d." % [today["day"], today["month"], today["year"]]
-	var daily_seed: int = today["year"] * 10000 + today["month"] * 100 + today["day"]
-	var five_seed: int  = daily_seed + 1
+	var today       := SaveManager.get_today()
+	var date_str    : String = today["date_str"]
+	var date_label  : String = today["date_label"]
+	var daily_seed  : int    = today["daily_seed"]
+	var five_seed   : int    = today["five_seed"]
 
 	btns.append({
 		"label":  "Nova igra",
@@ -189,7 +188,7 @@ func _build_buttons(parent: VBoxContainer) -> void:
 
 	var daily_result := SaveManager.load_daily_result(date_str)
 	if daily_result.size() > 0:
-		btns.append(_done_btn("Dnevni izazov", daily_result))
+		btns.append(_done_btn("Dnevni izazov", daily_result, "daily", date_str))
 	else:
 		btns.append({
 			"label":  "Dnevni izazov",
@@ -200,7 +199,7 @@ func _build_buttons(parent: VBoxContainer) -> void:
 
 	var five_result := SaveManager.load_five_result(date_str)
 	if five_result.size() > 0:
-		btns.append(_done_btn("Dnevnih 5", five_result))
+		btns.append(_done_btn("Dnevnih 5", five_result, "five", date_str))
 	else:
 		var saved := SaveManager.load_session()
 		if saved.size() > 0:
@@ -350,15 +349,12 @@ func _make_menu_btn(label: String, subtitle: String, style: String) -> Button:
 
 	return btn
 
-func _done_btn(label: String, result: Dictionary) -> Dictionary:
-	var mins: int = int(result["time"]) / 60
-	var secs: int = int(result["time"]) % 60
+func _done_btn(label: String, result: Dictionary, mode: String, date_str: String) -> Dictionary:
 	return {
-		"label":    label,
-		"sub":      "%s  %d bod  •  %s  %dm %02ds" % [_icon("done"), result["score"], _icon("timer"), mins, secs],
-		"style":    "daily_done",
-		"action":   func() -> void: pass,
-		"disabled": true,
+		"label":  label,
+		"sub":    "%s  %d bod  •  %s  %s" % [_icon("done"), result["score"], _icon("timer"), _fmt_time(result["time"])],
+		"style":  "daily_done",
+		"action": func() -> void: _show_leaderboard_overlay_menu(mode, date_str),
 	}
 
 # ── Navigation ─────────────────────────────────────────────────────────────
@@ -539,3 +535,145 @@ func _build_spacer(parent: VBoxContainer, height: int) -> void:
 	var s: Control = Control.new()
 	s.custom_minimum_size = Vector2(0, height)
 	parent.add_child(s)
+
+func _fmt_time(secs: float) -> String:
+	var s: int = int(secs)
+	if s < 60:
+		return "%ds" % s
+	return "%dm%02ds" % [s / 60, s % 60]
+
+func _make_leaderboard_row_menu(rank: int, entry: Dictionary, is_me: bool) -> Control:
+	var row := HBoxContainer.new()
+	row.add_theme_constant_override("separation", 10)
+
+	var rank_color: Color
+	if is_me:
+		rank_color = C_ACCENT
+	elif rank == 1:
+		rank_color = Color(1.00, 0.84, 0.10)
+	elif rank == 2:
+		rank_color = Color(0.75, 0.76, 0.82)
+	elif rank == 3:
+		rank_color = Color(0.80, 0.52, 0.25)
+	else:
+		rank_color = C_TEXT_DIM
+
+	var rank_lbl := Label.new()
+	rank_lbl.text = "%d." % rank
+	rank_lbl.custom_minimum_size = Vector2(32, 0)
+	rank_lbl.add_theme_font_override("font", _make_font(700))
+	rank_lbl.add_theme_color_override("font_color", rank_color)
+	row.add_child(rank_lbl)
+
+	var name_lbl := Label.new()
+	name_lbl.text = entry["name"]
+	name_lbl.size_flags_horizontal = Control.SIZE_EXPAND_FILL
+	name_lbl.add_theme_font_override("font", _make_font(600 if is_me else 400))
+	row.add_child(name_lbl)
+
+	var score_lbl := Label.new()
+	score_lbl.text = "%d" % entry["score"]
+	score_lbl.add_theme_font_override("font", _make_font(600))
+	score_lbl.add_theme_color_override("font_color", C_WIN if is_me else C_TEXT)
+	row.add_child(score_lbl)
+
+	var time_lbl := Label.new()
+	time_lbl.text = "  " + _fmt_time(entry["time"])
+	time_lbl.add_theme_font_override("font", _make_font(300))
+	time_lbl.add_theme_color_override("font_color", C_TEXT_DIM)
+	time_lbl.add_theme_font_size_override("font_size", 13)
+	row.add_child(time_lbl)
+
+	if is_me:
+		var row_bg := PanelContainer.new()
+		row_bg.add_theme_stylebox_override("panel", _rounded_box(C_ACCENT.darkened(0.6), 8))
+		row_bg.size_flags_horizontal = Control.SIZE_EXPAND_FILL
+		row_bg.add_child(row)
+		return row_bg
+	return row
+
+func _show_leaderboard_overlay_menu(mode: String, date_str: String) -> void:
+	if _overlay and is_instance_valid(_overlay):
+		_close_overlay()
+
+	var dim := _make_dim()
+	_overlay = dim
+	_overlay_tag = "leaderboard"
+	var panel := _make_overlay_panel(dim, 420)
+	var vbox  := _make_overlay_vbox(panel, 12)
+
+	var mode_label := "Dnevni izazov" if mode == "daily" else "Dnevnih 5"
+	var header := Label.new()
+	header.text = "Ljestvica — " + mode_label
+	header.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
+	header.add_theme_font_size_override("font_size", 20)
+	header.add_theme_font_override("font", _make_font(700))
+	vbox.add_child(header)
+
+	var parts := date_str.split("-")
+	var date_lbl := Label.new()
+	date_lbl.text = "%s.%s.%s." % [parts[2], parts[1], parts[0]]
+	date_lbl.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
+	date_lbl.add_theme_font_override("font", _make_font(300))
+	date_lbl.add_theme_color_override("font_color", C_TEXT_DIM)
+	date_lbl.add_theme_font_size_override("font_size", 14)
+	vbox.add_child(date_lbl)
+
+	_add_separator(vbox)
+
+	var loading_lbl := Label.new()
+	loading_lbl.text = "Učitavanje…"
+	loading_lbl.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
+	loading_lbl.add_theme_color_override("font_color", C_TEXT_DIM)
+	vbox.add_child(loading_lbl)
+
+	var pulse: Tween = create_tween().set_loops()
+	pulse.tween_property(loading_lbl, "modulate:a", 0.3, 0.65).set_trans(Tween.TRANS_SINE)
+	pulse.tween_property(loading_lbl, "modulate:a", 1.0, 0.65).set_trans(Tween.TRANS_SINE)
+
+	_animate_overlay_in(dim, panel)
+
+	var entries := await FirebaseClient.fetch_leaderboard(mode, date_str)
+	if not is_instance_valid(loading_lbl):
+		return
+
+	pulse.kill()
+	loading_lbl.queue_free()
+	_add_separator(vbox)
+
+	var my_uid: String = FirebaseClient.get_uid()
+
+	if entries.is_empty():
+		var empty_lbl := Label.new()
+		empty_lbl.text = "Nema rezultata."
+		empty_lbl.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
+		empty_lbl.add_theme_color_override("font_color", C_TEXT_DIM)
+		vbox.add_child(empty_lbl)
+	else:
+		var scroll := ScrollContainer.new()
+		scroll.custom_minimum_size = Vector2(0, 320)
+		scroll.horizontal_scroll_mode = ScrollContainer.SCROLL_MODE_DISABLED
+		vbox.add_child(scroll)
+
+		var list := VBoxContainer.new()
+		list.add_theme_constant_override("separation", 6)
+		list.size_flags_horizontal = Control.SIZE_EXPAND_FILL
+		scroll.add_child(list)
+
+		var me_row: Control = null
+		for i in entries.size():
+			var is_me: bool = entries[i]["uid"] == my_uid
+			var row := _make_leaderboard_row_menu(i + 1, entries[i], is_me)
+			list.add_child(row)
+			if is_me:
+				me_row = row
+
+		if me_row != null:
+			await get_tree().process_frame
+			scroll.ensure_control_visible(me_row)
+
+	_add_separator(vbox)
+	var close_btn := _make_small_btn("Zatvori")
+	close_btn.size_flags_horizontal = Control.SIZE_SHRINK_CENTER
+	close_btn.pressed.connect(_close_overlay)
+	vbox.add_child(close_btn)

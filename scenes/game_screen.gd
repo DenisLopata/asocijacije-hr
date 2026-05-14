@@ -177,8 +177,7 @@ func _unhandled_input(event: InputEvent) -> void:
 			_debug_clear_daily()
 
 func _debug_clear_daily() -> void:
-	var today := Time.get_date_dict_from_system()
-	var date_str := "%d-%02d-%02d" % [today["year"], today["month"], today["day"]]
+	var date_str: String = SaveManager.get_today()["date_str"]
 	var cfg := ConfigFile.new()
 	cfg.load(SaveManager.PREFS_PATH)
 	cfg.erase_section_key("daily_single", date_str + "_score")
@@ -1298,9 +1297,9 @@ func _on_name_confirmed(player_name: String) -> void:
 	for t in _puzzle_times:
 		total_time += t
 
-	var today := Time.get_date_dict_from_system()
-	var date_str := "%d-%02d-%02d" % [today["year"], today["month"], today["day"]]
-	var daily_seed: int = today["year"] * 10000 + today["month"] * 100 + today["day"]
+	var td          := SaveManager.get_today()
+	var date_str    : String = td["date_str"]
+	var daily_seed  : int    = td["daily_seed"]
 
 	if _is_daily:
 		SaveManager.save_daily_result(date_str, total_score, total_time)
@@ -1320,6 +1319,9 @@ func _on_name_confirmed(player_name: String) -> void:
 # ── Submitting / leaderboard overlays ─────────────────────────────────────
 func _show_submitting_overlay(player_name: String, score: int, time_sec: float,
 		mode: String, date_str: String, seed: int) -> void:
+	if FirebaseClient.was_submitted(mode, date_str):
+		_show_leaderboard_overlay(mode, date_str, FirebaseClient.get_uid(), score, time_sec)
+		return
 	var dim := _make_dim()
 	_overlay = dim
 	_overlay_tag = "submitting"
@@ -1339,14 +1341,31 @@ func _show_submitting_overlay(player_name: String, score: int, time_sec: float,
 	var ok := await FirebaseClient.submit_score(player_name, score, time_sec, mode, date_str, seed)
 	if not is_instance_valid(dim):
 		return
-	_close_overlay()
 
 	if ok:
-		_show_leaderboard_overlay(mode, date_str, FirebaseClient.get_uid())
-	else:
-		_go_to_menu()
+		_close_overlay()
+		_show_leaderboard_overlay(mode, date_str, FirebaseClient.get_uid(), score, time_sec)
+		return
 
-func _show_leaderboard_overlay(mode: String, date_str: String, my_uid: String) -> void:
+	# Submission failed — show error with retry
+	lbl.text = "Nema internetske veze." if FirebaseClient.get_last_error() == "auth_failed" else "Slanje nije uspjelo."
+	lbl.add_theme_color_override("font_color", C_LOSE)
+
+	var retry_btn := _make_ghost_btn("Pokušaj ponovo")
+	retry_btn.size_flags_horizontal = Control.SIZE_SHRINK_CENTER
+	retry_btn.pressed.connect(func() -> void:
+		_close_overlay()
+		_show_submitting_overlay(player_name, score, time_sec, mode, date_str, seed))
+	vbox.add_child(retry_btn)
+
+	var skip_btn := _make_ghost_btn("Odustani")
+	skip_btn.size_flags_horizontal = Control.SIZE_SHRINK_CENTER
+	skip_btn.pressed.connect(func() -> void:
+		_close_overlay()
+		_go_to_menu())
+	vbox.add_child(skip_btn)
+
+func _show_leaderboard_overlay(mode: String, date_str: String, my_uid: String, my_score: int = -1, my_time: float = 0.0) -> void:
 	var dim := _make_dim()
 	_overlay = dim
 	_overlay_tag = "leaderboard"
@@ -1379,12 +1398,17 @@ func _show_leaderboard_overlay(mode: String, date_str: String, my_uid: String) -
 	loading_lbl.add_theme_color_override("font_color", C_TEXT_DIM)
 	vbox.add_child(loading_lbl)
 
+	var pulse: Tween = create_tween().set_loops()
+	pulse.tween_property(loading_lbl, "modulate:a", 0.3, 0.65).set_trans(Tween.TRANS_SINE)
+	pulse.tween_property(loading_lbl, "modulate:a", 1.0, 0.65).set_trans(Tween.TRANS_SINE)
+
 	_animate_overlay_in(dim, panel)
 
 	var entries := await FirebaseClient.fetch_leaderboard(mode, date_str)
 	if not is_instance_valid(loading_lbl):
 		return
 
+	pulse.kill()
 	loading_lbl.queue_free()
 	_add_separator(vbox)
 
@@ -1405,49 +1429,27 @@ func _show_leaderboard_overlay(mode: String, date_str: String, my_uid: String) -
 		list.size_flags_horizontal = Control.SIZE_EXPAND_FILL
 		scroll.add_child(list)
 
+		var me_row: Control = null
 		for i in entries.size():
-			var entry: Dictionary = entries[i]
-			var is_me: bool = entry["uid"] == my_uid
-
-			var row := HBoxContainer.new()
-			row.add_theme_constant_override("separation", 10)
+			var is_me: bool = entries[i]["uid"] == my_uid
+			var row := _make_leaderboard_row(i + 1, entries[i], is_me)
+			list.add_child(row)
 			if is_me:
-				var row_bg := PanelContainer.new()
-				var row_style := _rounded_box(C_ACCENT.darkened(0.6), 8)
-				row_bg.add_theme_stylebox_override("panel", row_style)
-				row_bg.size_flags_horizontal = Control.SIZE_EXPAND_FILL
-				row_bg.add_child(row)
-				list.add_child(row_bg)
-			else:
-				list.add_child(row)
+				me_row = row
+		if me_row != null:
+			await get_tree().process_frame
+			scroll.ensure_control_visible(me_row)
 
-			var rank_lbl := Label.new()
-			rank_lbl.text = "%d." % (i + 1)
-			rank_lbl.custom_minimum_size = Vector2(32, 0)
-			rank_lbl.add_theme_font_override("font", _make_font(700))
-			rank_lbl.add_theme_color_override("font_color", C_TEXT_DIM if not is_me else C_ACCENT)
-			row.add_child(rank_lbl)
-
-			var name_lbl := Label.new()
-			name_lbl.text = entry["name"]
-			name_lbl.size_flags_horizontal = Control.SIZE_EXPAND_FILL
-			name_lbl.add_theme_font_override("font", _make_font(600 if is_me else 400))
-			row.add_child(name_lbl)
-
-			var score_lbl := Label.new()
-			score_lbl.text = "%d" % entry["score"]
-			score_lbl.add_theme_font_override("font", _make_font(600))
-			score_lbl.add_theme_color_override("font_color", C_WIN if is_me else C_TEXT)
-			row.add_child(score_lbl)
-
-			var mins: int = int(entry["time"]) / 60
-			var secs: int = int(entry["time"]) % 60
-			var time_lbl := Label.new()
-			time_lbl.text = "  %dm%02ds" % [mins, secs]
-			time_lbl.add_theme_font_override("font", _make_font(300))
-			time_lbl.add_theme_color_override("font_color", C_TEXT_DIM)
-			time_lbl.add_theme_font_size_override("font_size", 13)
-			row.add_child(time_lbl)
+		var player_in_list: bool = entries.any(func(e): return e["uid"] == my_uid)
+		if not player_in_list and my_score >= 0:
+			var my_rank := await FirebaseClient.fetch_player_rank(mode, date_str, my_score)
+			if my_rank > 0 and is_instance_valid(vbox):
+				var rank_lbl := Label.new()
+				rank_lbl.text = "Tvoje mjesto: #%d" % my_rank
+				rank_lbl.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
+				rank_lbl.add_theme_font_override("font", _make_font(600))
+				rank_lbl.add_theme_color_override("font_color", C_ACCENT)
+				vbox.add_child(rank_lbl)
 
 	_add_separator(vbox)
 	var close_btn := _make_ghost_btn("Zatvori")
@@ -1456,6 +1458,61 @@ func _show_leaderboard_overlay(mode: String, date_str: String, my_uid: String) -
 		_close_overlay()
 		_go_to_menu())
 	vbox.add_child(close_btn)
+
+func _make_leaderboard_row(rank: int, entry: Dictionary, is_me: bool) -> Control:
+	var row := HBoxContainer.new()
+	row.add_theme_constant_override("separation", 10)
+
+	var rank_lbl := Label.new()
+	rank_lbl.text = "%d." % rank
+	rank_lbl.custom_minimum_size = Vector2(32, 0)
+	rank_lbl.add_theme_font_override("font", _make_font(700))
+	var rank_color: Color
+	if is_me:
+		rank_color = C_ACCENT
+	elif rank == 1:
+		rank_color = Color(1.00, 0.84, 0.10)
+	elif rank == 2:
+		rank_color = Color(0.75, 0.76, 0.82)
+	elif rank == 3:
+		rank_color = Color(0.80, 0.52, 0.25)
+	else:
+		rank_color = C_TEXT_DIM
+	rank_lbl.add_theme_color_override("font_color", rank_color)
+	row.add_child(rank_lbl)
+
+	var name_lbl := Label.new()
+	name_lbl.text = entry["name"]
+	name_lbl.size_flags_horizontal = Control.SIZE_EXPAND_FILL
+	name_lbl.add_theme_font_override("font", _make_font(600 if is_me else 400))
+	row.add_child(name_lbl)
+
+	var score_lbl := Label.new()
+	score_lbl.text = "%d" % entry["score"]
+	score_lbl.add_theme_font_override("font", _make_font(600))
+	score_lbl.add_theme_color_override("font_color", C_WIN if is_me else C_TEXT)
+	row.add_child(score_lbl)
+
+	var time_lbl := Label.new()
+	time_lbl.text = "  " + _fmt_time(entry["time"])
+	time_lbl.add_theme_font_override("font", _make_font(300))
+	time_lbl.add_theme_color_override("font_color", C_TEXT_DIM)
+	time_lbl.add_theme_font_size_override("font_size", 13)
+	row.add_child(time_lbl)
+
+	if is_me:
+		var row_bg := PanelContainer.new()
+		row_bg.add_theme_stylebox_override("panel", _rounded_box(C_ACCENT.darkened(0.6), 8))
+		row_bg.size_flags_horizontal = Control.SIZE_EXPAND_FILL
+		row_bg.add_child(row)
+		return row_bg
+	return row
+
+func _fmt_time(secs: float) -> String:
+	var s: int = int(secs)
+	if s < 60:
+		return "%ds" % s
+	return "%dm%02ds" % [s / 60, s % 60]
 
 # ── Settings overlay (#14, #18) ────────────────────────────────────────────
 func _on_settings() -> void:
