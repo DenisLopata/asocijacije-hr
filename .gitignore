@@ -1,8 +1,9 @@
 # Godot-generated files
 .godot/
 
-# Export artifacts
-export/
+# Export artifacts — keep the directory, ignore built files
+export/web/*
+!export/web/.gitkeep
 *.pck
 *.apk
 *.aab
