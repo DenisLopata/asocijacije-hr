@@ -135,6 +135,7 @@ var _session_scores: Array[int] = []
 var _session_best: int = 0
 var _tile_font_override: int = 0
 var _is_daily: bool = false
+var _is_five_daily: bool = false
 
 var _grid: GridContainer
 var _mistake_dots: Array[Panel] = []
@@ -166,6 +167,22 @@ var _feedback_gen: int = 0
 var _feedback_locked: bool = false
 
 # ── Boot ───────────────────────────────────────────────────────────────────
+func _unhandled_input(event: InputEvent) -> void:
+	if not OS.is_debug_build():
+		return
+	if event is InputEventKey and event.pressed and not event.echo:
+		if event.keycode == KEY_D and event.ctrl_pressed:
+			_debug_skip_to_leaderboard()
+
+func _debug_skip_to_leaderboard() -> void:
+	if _is_daily:
+		_puzzle_scores = [980]
+		_puzzle_times  = [42.3]
+	else:
+		_puzzle_scores = [980, 750, 600, 880, 1100]
+		_puzzle_times  = [42.3, 67.8, 95.1, 38.6, 51.2]
+	_show_name_picker()
+
 func _ready() -> void:
 	_register_theme_variations()
 
@@ -178,6 +195,14 @@ func _ready() -> void:
 		var daily_seed: int = get_tree().get_meta("daily_seed")
 		get_tree().remove_meta("daily_seed")
 		seed(daily_seed)
+		_puzzles = [PuzzleData.get_single_puzzle()]
+		_build_ui()
+		_load_puzzle(_current_puzzle_index)
+	elif get_tree().has_meta("five_seed"):
+		_is_five_daily = true
+		var five_seed: int = get_tree().get_meta("five_seed")
+		get_tree().remove_meta("five_seed")
+		seed(five_seed)
 		_puzzles = PuzzleData.get_puzzles()
 		_build_ui()
 		_load_puzzle(_current_puzzle_index)
@@ -480,10 +505,11 @@ func _build_nav_row(parent: VBoxContainer) -> void:
 	menu_btn.theme_type_variation = "GhostButton"
 	row.add_child(menu_btn)
 
-	var new_btn: Button = _make_ghost_btn("Novi set", "refresh")
-	new_btn.pressed.connect(_on_new_set)
-	new_btn.theme_type_variation = "GhostButton"
-	row.add_child(new_btn)
+	if not _is_daily:
+		var new_btn: Button = _make_ghost_btn("Novi set", "refresh")
+		new_btn.pressed.connect(_on_new_set)
+		new_btn.theme_type_variation = "GhostButton"
+		row.add_child(new_btn)
 
 # ── Puzzle loading ─────────────────────────────────────────────────────────
 func _load_puzzle(index: int) -> void:
@@ -531,7 +557,7 @@ func _load_puzzle(index: int) -> void:
 	_set_submit_ready(false)
 	_update_hint_btn()
 
-	var prefix: String = "Dnevni  " if _is_daily else "Slagalica "
+	var prefix: String = "Dnevni  " if _is_daily else ("Dnevnih 5  " if _is_five_daily else "Slagalica ")
 	_puzzle_counter.text = "%s%d/%d" % [prefix, index + 1, _puzzles.size()]
 	_puzzle_stars.text   = "  " + _difficulty_badge(_puzzles[index])
 	_update_session_label()
@@ -607,10 +633,12 @@ func _make_tile(word: String) -> Button:
 func _icon_font() -> FontFile:
 	return load(ICON_FONT_PATH) as FontFile
 
-func _mixed_font() -> FontFile:
-	var f := load(FONT_PATH).duplicate() as FontFile
-	f.fallbacks = [_icon_font()]
-	return f
+func _mixed_font(weight: int = 600) -> FontVariation:
+	var fv := FontVariation.new()
+	fv.base_font = load(FONT_PATH)
+	fv.variation_opentype = {"wght": weight}
+	fv.fallbacks = [_icon_font()]
+	return fv
 
 func _make_ghost_btn(label: String, icon_name: String = "") -> Button:
 	var btn: Button = Button.new()
@@ -1183,6 +1211,14 @@ func _show_name_picker() -> void:
 	name_display.custom_minimum_size = Vector2(0, 44)
 	vbox.add_child(name_display)
 
+	var hint_lbl: Label = Label.new()
+	hint_lbl.text = "4–10 znakova"
+	hint_lbl.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
+	hint_lbl.add_theme_font_override("font", _make_font(400))
+	hint_lbl.add_theme_font_size_override("font_size", 13)
+	hint_lbl.add_theme_color_override("font_color", C_TEXT_DIM)
+	vbox.add_child(hint_lbl)
+
 	_add_separator(vbox)
 
 	var grid: GridContainer = GridContainer.new()
@@ -1196,7 +1232,8 @@ func _show_name_picker() -> void:
 
 	const CHARS := ["A","B","C","Č","D","E","F","G","H","I","J","K","L","M","N","O","P","R","S","Š","T","U","V","Z","Ž","Ć","Đ","0","1","2","3","4","5","6","7","8","9","-"," ","DEL","OK"]
 
-	var ok_btn_ref: Button = null
+	# ok_btn_ref stored in an Array so lambdas capture the container by ref, not the null value
+	var ok_btn_holder: Array[Button] = []
 
 	for ch in CHARS:
 		var btn: Button = Button.new()
@@ -1215,16 +1252,17 @@ func _show_name_picker() -> void:
 
 		if ch == "OK":
 			btn.disabled = true
-			ok_btn_ref = btn
+			ok_btn_holder.append(btn)
 
-		var char_val := ch
+		var char_val: String = ch
 		btn.pressed.connect(func() -> void:
+			var ok_btn: Button = ok_btn_holder[0] if ok_btn_holder.size() > 0 else null
 			if char_val == "DEL":
 				if name_buf[0].length() > 0:
 					name_buf[0] = name_buf[0].substr(0, name_buf[0].length() - 1)
 					name_display.text = name_buf[0]
-					if ok_btn_ref and is_instance_valid(ok_btn_ref):
-						ok_btn_ref.disabled = name_buf[0].is_empty()
+					if ok_btn and is_instance_valid(ok_btn):
+						ok_btn.disabled = name_buf[0].length() < 4
 			elif char_val == "OK":
 				_on_name_confirmed(name_buf[0])
 			else:
@@ -1232,8 +1270,8 @@ func _show_name_picker() -> void:
 					var insert_char := " " if char_val == " " else char_val
 					name_buf[0] += insert_char
 					name_display.text = name_buf[0]
-					if ok_btn_ref and is_instance_valid(ok_btn_ref):
-						ok_btn_ref.disabled = name_buf[0].is_empty())
+					if ok_btn and is_instance_valid(ok_btn):
+						ok_btn.disabled = name_buf[0].length() < 4)
 		grid.add_child(btn)
 
 	_animate_overlay_in(dim, panel)
@@ -1245,15 +1283,165 @@ func _on_name_confirmed(player_name: String) -> void:
 		total_score += s
 	for t in _puzzle_times:
 		total_time += t
-	print("=== SESSION COMPLETE ===")
-	print("Player: ", player_name)
-	print("Total score: ", total_score)
-	print("Total time: %.1fs" % total_time)
-	for i in _puzzle_scores.size():
-		print("  Puzzle %d: %d pts in %.1fs" % [i+1, _puzzle_scores[i], _puzzle_times[i]])
-	_close_overlay()
+
+	var today := Time.get_date_dict_from_system()
+	var date_str := "%d-%02d-%02d" % [today["year"], today["month"], today["day"]]
+	var daily_seed: int = today["year"] * 10000 + today["month"] * 100 + today["day"]
+
+	if _is_daily:
+		SaveManager.save_daily_result(date_str, total_score, total_time)
+	elif _is_five_daily:
+		SaveManager.save_five_result(date_str, total_score, total_time)
+
 	SaveManager.clear_save()
-	_go_to_menu()
+	_close_overlay()
+
+	if _is_daily or _is_five_daily:
+		var mode := "daily" if _is_daily else "five"
+		var seed  := daily_seed if _is_daily else daily_seed + 1
+		_show_submitting_overlay(player_name, total_score, total_time, mode, date_str, seed)
+	else:
+		_go_to_menu()
+
+# ── Submitting / leaderboard overlays ─────────────────────────────────────
+func _show_submitting_overlay(player_name: String, score: int, time_sec: float,
+		mode: String, date_str: String, seed: int) -> void:
+	var dim := _make_dim()
+	_overlay = dim
+	_overlay_tag = "submitting"
+	var panel := _make_overlay_panel(dim, 340)
+	var vbox  := _make_overlay_vbox(panel, 18)
+
+	var lbl := Label.new()
+	lbl.text = "Slanje rezultata…"
+	lbl.theme_type_variation = "TitleLabel"
+	lbl.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
+	lbl.add_theme_font_size_override("font_size", 20)
+	lbl.add_theme_font_override("font", _make_font(600))
+	vbox.add_child(lbl)
+
+	_animate_overlay_in(dim, panel)
+
+	var ok := await FirebaseClient.submit_score(player_name, score, time_sec, mode, date_str, seed)
+	if not is_instance_valid(dim):
+		return
+	_close_overlay()
+
+	if ok:
+		_show_leaderboard_overlay(mode, date_str, FirebaseClient.get_uid())
+	else:
+		_go_to_menu()
+
+func _show_leaderboard_overlay(mode: String, date_str: String, my_uid: String) -> void:
+	var dim := _make_dim()
+	_overlay = dim
+	_overlay_tag = "leaderboard"
+	var panel := _make_overlay_panel(dim, 420)
+	var vbox  := _make_overlay_vbox(panel, 12)
+
+	var mode_label := "Dnevni izazov" if mode == "daily" else "Dnevnih 5"
+	var header := Label.new()
+	header.text = "Ljestvica — " + mode_label
+	header.theme_type_variation = "TitleLabel"
+	header.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
+	header.add_theme_font_size_override("font_size", 20)
+	header.add_theme_font_override("font", _make_font(700))
+	vbox.add_child(header)
+
+	var date_lbl := Label.new()
+	var parts := date_str.split("-")
+	date_lbl.text = "%s.%s.%s." % [parts[2], parts[1], parts[0]]
+	date_lbl.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
+	date_lbl.add_theme_font_override("font", _make_font(300))
+	date_lbl.add_theme_color_override("font_color", C_TEXT_DIM)
+	date_lbl.add_theme_font_size_override("font_size", 14)
+	vbox.add_child(date_lbl)
+
+	_add_separator(vbox)
+
+	var loading_lbl := Label.new()
+	loading_lbl.text = "Učitavanje…"
+	loading_lbl.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
+	loading_lbl.add_theme_color_override("font_color", C_TEXT_DIM)
+	vbox.add_child(loading_lbl)
+
+	_animate_overlay_in(dim, panel)
+
+	var entries := await FirebaseClient.fetch_leaderboard(mode, date_str)
+	if not is_instance_valid(loading_lbl):
+		return
+
+	loading_lbl.queue_free()
+	_add_separator(vbox)
+
+	if entries.is_empty():
+		var empty_lbl := Label.new()
+		empty_lbl.text = "Nema rezultata."
+		empty_lbl.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
+		empty_lbl.add_theme_color_override("font_color", C_TEXT_DIM)
+		vbox.add_child(empty_lbl)
+	else:
+		var scroll := ScrollContainer.new()
+		scroll.custom_minimum_size = Vector2(0, 320)
+		scroll.horizontal_scroll_mode = ScrollContainer.SCROLL_MODE_DISABLED
+		vbox.add_child(scroll)
+
+		var list := VBoxContainer.new()
+		list.add_theme_constant_override("separation", 6)
+		list.size_flags_horizontal = Control.SIZE_EXPAND_FILL
+		scroll.add_child(list)
+
+		for i in entries.size():
+			var entry: Dictionary = entries[i]
+			var is_me := entry["uid"] == my_uid
+
+			var row := HBoxContainer.new()
+			row.add_theme_constant_override("separation", 10)
+			if is_me:
+				var row_bg := PanelContainer.new()
+				var row_style := _rounded_box(C_ACCENT.darkened(0.6), 8)
+				row_bg.add_theme_stylebox_override("panel", row_style)
+				row_bg.size_flags_horizontal = Control.SIZE_EXPAND_FILL
+				row_bg.add_child(row)
+				list.add_child(row_bg)
+			else:
+				list.add_child(row)
+
+			var rank_lbl := Label.new()
+			rank_lbl.text = "%d." % (i + 1)
+			rank_lbl.custom_minimum_size = Vector2(32, 0)
+			rank_lbl.add_theme_font_override("font", _make_font(700))
+			rank_lbl.add_theme_color_override("font_color", C_TEXT_DIM if not is_me else C_ACCENT)
+			row.add_child(rank_lbl)
+
+			var name_lbl := Label.new()
+			name_lbl.text = entry["name"]
+			name_lbl.size_flags_horizontal = Control.SIZE_EXPAND_FILL
+			name_lbl.add_theme_font_override("font", _make_font(600 if is_me else 400))
+			row.add_child(name_lbl)
+
+			var score_lbl := Label.new()
+			score_lbl.text = "%d" % entry["score"]
+			score_lbl.add_theme_font_override("font", _make_font(600))
+			score_lbl.add_theme_color_override("font_color", C_WIN if is_me else C_TEXT)
+			row.add_child(score_lbl)
+
+			var mins: int = int(entry["time"]) / 60
+			var secs: int = int(entry["time"]) % 60
+			var time_lbl := Label.new()
+			time_lbl.text = "  %dm%02ds" % [mins, secs]
+			time_lbl.add_theme_font_override("font", _make_font(300))
+			time_lbl.add_theme_color_override("font_color", C_TEXT_DIM)
+			time_lbl.add_theme_font_size_override("font_size", 13)
+			row.add_child(time_lbl)
+
+	_add_separator(vbox)
+	var close_btn := _make_ghost_btn("Zatvori")
+	close_btn.size_flags_horizontal = Control.SIZE_SHRINK_CENTER
+	close_btn.pressed.connect(func() -> void:
+		_close_overlay()
+		_go_to_menu())
+	vbox.add_child(close_btn)
 
 # ── Settings overlay (#14, #18) ────────────────────────────────────────────
 func _on_settings() -> void:

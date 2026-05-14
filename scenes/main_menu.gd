@@ -9,17 +9,45 @@ const ANIM_PRESS_DIP   := 0.07
 const ANIM_PRESS_RISE  := 0.13
 
 # ── Palette (mirrors game_screen) ──────────────────────────────────────────
-const C_BG       := Color(0.07, 0.08, 0.11)
-const C_SURFACE  := Color(0.13, 0.14, 0.18)
-const C_TEXT     := Color(0.96, 0.96, 0.98)
-const C_TEXT_DIM := Color(0.55, 0.56, 0.62)
-const C_ACCENT   := Color(0.45, 0.55, 1.00)
-const C_WIN      := Color(0.30, 0.85, 0.55)
-const C_SUBMIT_ON := Color(0.28, 0.60, 0.42)
+const C_BG         := Color(0.07, 0.08, 0.11)
+const C_SURFACE    := Color(0.13, 0.14, 0.18)
+const C_TEXT       := Color(0.96, 0.96, 0.98)
+const C_TEXT_DIM   := Color(0.55, 0.56, 0.62)
+const C_ACCENT     := Color(0.45, 0.55, 1.00)
+const C_WIN        := Color(0.30, 0.85, 0.55)
+const C_SUBMIT_ON  := Color(0.28, 0.60, 0.42)
+const C_BTN_PRIMARY := Color(0.28, 0.35, 0.65)
+const C_BTN_DAILY   := Color(0.50, 0.32, 0.68)
+const C_BTN_FIVE    := Color(0.18, 0.52, 0.58)
+const C_BTN_DONE    := Color(0.18, 0.20, 0.26)
 
-const RADIUS_BTN : int = 22
-const FONT_PATH  := "res://assets/fonts/Nunito-VariableFont_wght.ttf"
-const VERSION    := "v0.1.0"
+const RADIUS_BTN      : int = 22
+const FONT_PATH       := "res://assets/fonts/Outfit-VariableFont_wght.ttf"
+const ICON_FONT_PATH  := "res://assets/fonts/MaterialSymbolsOutlined.ttf"
+const VERSION         := "v0.1.0"
+
+func _icon(name: String) -> String:
+	const CP := {
+		"calendar":  0xE935,
+		"timer":     0xE425,
+		"shuffle":   0xE043,
+		"done":      0xE876,
+		"quiz":      0xF04C,
+		"star":      0xF09A,
+	}
+	return char(CP.get(name, 0x3F))
+
+func _icon_font() -> FontFile:
+	return load(ICON_FONT_PATH) as FontFile
+
+func _mixed_font(weight: int) -> FontVariation:
+	var fv := FontVariation.new()
+	fv.base_font = load(FONT_PATH)
+	fv.variation_opentype = {"wght": weight}
+	var icon_f := _icon_font()
+	if icon_f:
+		fv.fallbacks = [icon_f]
+	return fv
 
 const VIGNETTE_SHADER := "
 shader_type canvas_item;
@@ -129,18 +157,11 @@ func _build_logo(parent: VBoxContainer) -> void:
 func _build_buttons(parent: VBoxContainer) -> void:
 	var btns: Array[Dictionary] = []
 
-	# Continue — only when save exists
-	var saved := SaveManager.load_session()
-	if saved.size() > 0:
-		var idx: int = saved.get("current_index", 0)
-		var total: int = saved["puzzles"].size() if saved.has("puzzles") else 5
-		var score: int = saved["state"].get("score", 0) if saved.has("state") else 0
-		btns.append({
-			"label": "Nastavi igru",
-			"sub":   "Slagalica %d/%d  |  %d bodova" % [idx + 1, total, score],
-			"style": "continue",
-			"action": func() -> void: _go_to_game(false),
-		})
+	var today := Time.get_date_dict_from_system()
+	var date_str := "%d-%02d-%02d" % [today["year"], today["month"], today["day"]]
+	var date_label := "%d.%02d.%d." % [today["day"], today["month"], today["year"]]
+	var daily_seed: int = today["year"] * 10000 + today["month"] * 100 + today["day"]
+	var five_seed: int  = daily_seed + 1
 
 	btns.append({
 		"label":  "Nova igra",
@@ -149,14 +170,38 @@ func _build_buttons(parent: VBoxContainer) -> void:
 		"action": func() -> void: _go_to_game(true),
 	})
 
-	var today := Time.get_date_dict_from_system()
-	var daily_seed: int = today["year"] * 10000 + today["month"] * 100 + today["day"]
-	btns.append({
-		"label": "Dnevni izazov",
-		"sub":   "%d.%02d.%d." % [today["day"], today["month"], today["year"]],
-		"style": "daily",
-		"action": func() -> void: _go_to_daily(daily_seed),
-	})
+	var daily_result := SaveManager.load_daily_result(date_str)
+	if daily_result.size() > 0:
+		btns.append(_done_btn("Dnevni izazov", daily_result))
+	else:
+		btns.append({
+			"label":  "Dnevni izazov",
+			"sub":    date_label,
+			"style":  "daily",
+			"action": func() -> void: _go_to_daily(daily_seed),
+		})
+
+	var five_result := SaveManager.load_five_result(date_str)
+	if five_result.size() > 0:
+		btns.append(_done_btn("Dnevnih 5", five_result))
+	else:
+		var saved := SaveManager.load_session()
+		if saved.size() > 0:
+			var idx: int = saved.get("current_index", 0)
+			var total: int = saved["puzzles"].size() if saved.has("puzzles") else 5
+			var score: int = saved["state"].get("score", 0) if saved.has("state") else 0
+			btns.append({
+				"label":  "Nastavi Dnevnih 5",
+				"sub":    "%s  Slagalica %d/%d  •  %d bodova" % [_icon("timer"), idx + 1, total, score],
+				"style":  "five",
+				"action": func() -> void: _go_to_five(five_seed, false),
+			})
+		btns.append({
+			"label":  "Dnevnih 5",
+			"sub":    "%s  Pet slagalica  •  %s  %s" % [_icon("quiz"), date_label, _icon("timer")],
+			"style":  "five",
+			"action": func() -> void: _go_to_five(five_seed, true),
+		})
 
 	btns.append({
 		"label":  "Postavke",
@@ -169,6 +214,8 @@ func _build_buttons(parent: VBoxContainer) -> void:
 		var info: Dictionary = btns[i]
 		var btn: Button = _make_menu_btn(info["label"], info.get("sub", ""), info["style"])
 		btn.pressed.connect(info["action"])
+		if info.get("disabled", false):
+			btn.disabled = true
 		parent.add_child(btn)
 		_build_spacer(parent, 14)
 		# Stagger-in: fade + scale only — no position tweak inside VBox (#layout-safe)
@@ -216,10 +263,12 @@ func _make_menu_btn(label: String, subtitle: String, style: String) -> Button:
 	# Style
 	var bg_color: Color
 	match style:
-		"continue": bg_color = C_SUBMIT_ON
-		"primary":  bg_color = Color(0.28, 0.35, 0.65)
-		"daily":    bg_color = Color(0.50, 0.32, 0.68)
-		_:          bg_color = Color(0.17, 0.19, 0.25)
+		"continue":   bg_color = C_SUBMIT_ON
+		"primary":    bg_color = C_BTN_PRIMARY
+		"daily":      bg_color = C_BTN_DAILY
+		"five":       bg_color = C_BTN_FIVE
+		"daily_done": bg_color = C_BTN_DONE
+		_:            bg_color = C_SURFACE
 
 	var normal: StyleBoxFlat = _rounded_box(bg_color, RADIUS_BTN)
 	if style == "continue":
@@ -257,7 +306,7 @@ func _make_menu_btn(label: String, subtitle: String, style: String) -> Button:
 		var sub_lbl: Label = Label.new()
 		sub_lbl.text = subtitle
 		sub_lbl.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
-		sub_lbl.add_theme_font_override("font", _make_font(300))
+		sub_lbl.add_theme_font_override("font", _mixed_font(300))
 		sub_lbl.add_theme_font_size_override("font_size", 15)
 		sub_lbl.add_theme_color_override("font_color", C_TEXT.darkened(0.15))
 		sub_lbl.mouse_filter = Control.MOUSE_FILTER_IGNORE
@@ -284,26 +333,41 @@ func _make_menu_btn(label: String, subtitle: String, style: String) -> Button:
 
 	return btn
 
+func _done_btn(label: String, result: Dictionary) -> Dictionary:
+	var mins: int = int(result["time"]) / 60
+	var secs: int = int(result["time"]) % 60
+	return {
+		"label":    label,
+		"sub":      "%s  %d bod  •  %s  %dm %02ds" % [_icon("done"), result["score"], _icon("timer"), mins, secs],
+		"style":    "daily_done",
+		"action":   func() -> void: pass,
+		"disabled": true,
+	}
+
 # ── Navigation ─────────────────────────────────────────────────────────────
 func _go_to_game(clear_save: bool) -> void:
 	if clear_save:
 		SaveManager.clear_save()
-	# Fade to black then switch scene
-	_fade_rect.modulate = Color(1, 1, 1, 0)
-	var t: Tween = create_tween()
-	t.tween_property(_fade_rect, "modulate:a", 1.0, ANIM_FADE_OUT) \
-		.set_trans(Tween.TRANS_SINE)
-	await t.finished
+	await _fade_to_black()
 	get_tree().change_scene_to_file("res://scenes/game_screen.tscn")
 
-func _go_to_daily(seed: int) -> void:
-	get_tree().set_meta("daily_seed", seed)
+func _go_to_daily(p_seed: int) -> void:
+	get_tree().set_meta("daily_seed", p_seed)
+	await _fade_to_black()
+	get_tree().change_scene_to_file("res://scenes/game_screen.tscn")
+
+func _go_to_five(p_seed: int, clear_save: bool) -> void:
+	if clear_save:
+		SaveManager.clear_save()
+	get_tree().set_meta("five_seed", p_seed)
+	await _fade_to_black()
+	get_tree().change_scene_to_file("res://scenes/game_screen.tscn")
+
+func _fade_to_black() -> void:
 	_fade_rect.modulate = Color(1, 1, 1, 0)
 	var t: Tween = create_tween()
-	t.tween_property(_fade_rect, "modulate:a", 1.0, ANIM_FADE_OUT) \
-		.set_trans(Tween.TRANS_SINE)
+	t.tween_property(_fade_rect, "modulate:a", 1.0, ANIM_FADE_OUT).set_trans(Tween.TRANS_SINE)
 	await t.finished
-	get_tree().change_scene_to_file("res://scenes/game_screen.tscn")
 
 # ── Settings overlay (mirrors game_screen) ────────────────────────────────
 func _on_settings() -> void:

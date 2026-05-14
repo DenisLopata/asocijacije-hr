@@ -1,6 +1,10 @@
-[gd_resource type="Theme" load_steps=15 version=2]
+[gd_resource type="Theme" load_steps=16 version=2]
 
-[ext_resource type="FontFile" path="res://assets/fonts/Nunito-VariableFont_wght.ttf" id="Font_Nunito"]
+[ext_resource type="FontFile" path="res://assets/fonts/Outfit-VariableFont_wght.ttf" id="Font_Outfit"]
+
+[sub_resource type="FontVariation" id="FV_Default"]
+base_font = ExtResource("Font_Outfit")
+variation_opentype = {"wght": 400.0}
 
 [sub_resource type="StyleBoxFlat" id="SBF_TN"]
 bg_color = Color(0.17, 0.19, 0.25, 1)
@@ -187,7 +191,7 @@ content_margin_bottom = 4.0
 [sub_resource type="StyleBoxEmpty" id="SBF_EMPTY"]
 
 [resource]
-default_font = ExtResource("Font_Nunito")
+default_font = SubResource("FV_Default")
 default_font_size = 16
 
 type_variation/TileButton = &"Button"

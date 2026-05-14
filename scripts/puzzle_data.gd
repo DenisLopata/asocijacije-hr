@@ -323,6 +323,35 @@ static func _purple_pool() -> Array:
 		["___ rat",                ["hladni", "domovinski", "zvjezdani", "građanski"], 3],
 	]
 
+static func get_single_puzzle() -> Puzzle:
+	var raw_pools: Array = [_yellow_pool(), _green_pool(), _blue_pool(), _purple_pool()]
+	var diffs: Array = [Difficulty.YELLOW, Difficulty.GREEN, Difficulty.BLUE, Difficulty.PURPLE]
+	var extras: Dictionary = _category_extras()
+	var weights: Array = [30, 40, 30]
+
+	var pool_buckets: Array = []
+	for pool in raw_pools:
+		var buckets: Dictionary = {1: [], 2: [], 3: []}
+		for entry in pool:
+			var rank: int = entry[2] if entry.size() > 2 else 2
+			buckets[rank].append(entry)
+		for r in [1, 2, 3]:
+			buckets[r].shuffle()
+		pool_buckets.append(buckets)
+
+	var cats: Array = []
+	for p in 4:
+		var entry: Array = _weighted_pick(pool_buckets[p], weights)
+		var cat: Category = Category.new(entry[0], _to_typed(entry[1]), diffs[p])
+		cat.rank  = entry[2] if entry.size() > 2 else 2
+		cat.extra = extras.get(entry[0], "")
+		cats.append(cat)
+
+	var puzzle := Puzzle.new("Dnevni izazov", cats)
+	if OS.is_debug_build():
+		_assert_no_word_overlap([puzzle])
+	return puzzle
+
 static func get_puzzles() -> Array:
 	var raw_pools: Array = [_yellow_pool(), _green_pool(), _blue_pool(), _purple_pool()]
 	var diffs: Array = [Difficulty.YELLOW, Difficulty.GREEN, Difficulty.BLUE, Difficulty.PURPLE]

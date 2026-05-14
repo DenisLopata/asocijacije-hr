@@ -119,6 +119,37 @@ static func load_puzzle_start() -> float:
 		return 0.0
 	return cfg.get_value("progress", "puzzle_start_time", 0.0)
 
+static func save_daily_result(date_str: String, score: int, time_sec: float) -> void:
+	_write_result("daily_single", date_str, score, time_sec)
+
+static func load_daily_result(date_str: String) -> Dictionary:
+	return _read_result("daily_single", date_str)
+
+static func save_five_result(date_str: String, score: int, time_sec: float) -> void:
+	_write_result("daily_five", date_str, score, time_sec)
+
+static func load_five_result(date_str: String) -> Dictionary:
+	return _read_result("daily_five", date_str)
+
+static func _write_result(section: String, date_str: String, score: int, time_sec: float) -> void:
+	var cfg := ConfigFile.new()
+	cfg.load(PREFS_PATH)
+	cfg.set_value(section, date_str + "_score", score)
+	cfg.set_value(section, date_str + "_time",  time_sec)
+	cfg.save(PREFS_PATH)
+
+static func _read_result(section: String, date_str: String) -> Dictionary:
+	var cfg := ConfigFile.new()
+	if cfg.load(PREFS_PATH) != OK:
+		return {}
+	var score: int = cfg.get_value(section, date_str + "_score", -1)
+	if score < 0:
+		return {}
+	return {
+		"score": score,
+		"time":  cfg.get_value(section, date_str + "_time", 0.0),
+	}
+
 static func load_prefs() -> Dictionary:
 	var cfg := ConfigFile.new()
 	if cfg.load(PREFS_PATH) != OK:
