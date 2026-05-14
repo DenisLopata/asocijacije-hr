@@ -116,10 +116,11 @@ func _unhandled_input(event: InputEvent) -> void:
 			var yesterday: String = SaveManager._yesterday(SaveManager.get_today()["date_str"])
 			var cfg := ConfigFile.new()
 			cfg.load(SaveManager.PREFS_PATH)
-			cfg.set_value("streak", "last_date", yesterday)
-			cfg.set_value("streak", "count", 5)
+			for sec in ["streak_daily", "streak_five"]:
+				cfg.set_value(sec, "last_date", yesterday)
+				cfg.set_value(sec, "count", 5)
 			cfg.save(SaveManager.PREFS_PATH)
-			print("[DEBUG] Injected fake streak: 5 days, last=", yesterday)
+			print("[DEBUG] Injected fake streaks (daily+five): 5 days, last=", yesterday)
 			get_tree().reload_current_scene()
 
 func _ready() -> void:
@@ -231,7 +232,7 @@ func _build_buttons(parent: VBoxContainer) -> void:
 	})
 
 	var daily_result := SaveManager.load_daily_result(date_str)
-	var streak: int = SaveManager.load_streak()
+	var streak: int = SaveManager.load_streak("daily")
 	if daily_result.size() > 0:
 		btns.append(_done_btn("Dnevni izazov", daily_result, "daily", date_str, streak))
 	else:
@@ -246,8 +247,9 @@ func _build_buttons(parent: VBoxContainer) -> void:
 		})
 
 	var five_result := SaveManager.load_five_result(date_str)
+	var five_streak: int = SaveManager.load_streak("five")
 	if five_result.size() > 0:
-		btns.append(_done_btn("Dnevnih 5", five_result, "five", date_str))
+		btns.append(_done_btn("Dnevnih 5", five_result, "five", date_str, five_streak))
 	else:
 		var saved := SaveManager.load_session()
 		if saved.size() > 0:
@@ -260,9 +262,12 @@ func _build_buttons(parent: VBoxContainer) -> void:
 				"style":  "five",
 				"action": func() -> void: _go_to_five(five_seed, false),
 			})
+		var five_sub := "%s  Pet slagalica  •  %s" % [_icon("quiz"), date_label]
+		if five_streak >= 2:
+			five_sub += "  •  %s %d" % [_icon("local_fire"), five_streak]
 		btns.append({
 			"label":  "Dnevnih 5",
-			"sub":    "%s  Pet slagalica  •  %s  %s" % [_icon("quiz"), date_label, _icon("timer")],
+			"sub":    five_sub,
 			"style":  "five",
 			"action": func() -> void: _go_to_five(five_seed, true),
 		})

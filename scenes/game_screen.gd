@@ -1380,9 +1380,10 @@ func _on_name_confirmed(player_name: String) -> void:
 
 	if _is_daily:
 		SaveManager.save_daily_result(date_str, total_score, total_time)
-		SaveManager.update_streak(date_str)
+		SaveManager.update_streak(date_str, "daily")
 	elif _is_five_daily:
 		SaveManager.save_five_result(date_str, total_score, total_time)
+		SaveManager.update_streak(date_str, "five")
 
 	SaveManager.clear_save()
 	_close_overlay()
