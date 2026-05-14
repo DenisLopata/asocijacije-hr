@@ -1045,6 +1045,10 @@ func _make_dim() -> ColorRect:
 	return dim
 
 func _make_overlay_panel(parent: Control, min_width: int) -> PanelContainer:
+	var center: CenterContainer = CenterContainer.new()
+	center.set_anchors_and_offsets_preset(Control.PRESET_FULL_RECT)
+	parent.add_child(center)
+
 	var panel: PanelContainer = PanelContainer.new()
 	var style: StyleBoxFlat = _rounded_box(C_SURFACE, 20)
 	style.content_margin_left   = 32
@@ -1052,9 +1056,8 @@ func _make_overlay_panel(parent: Control, min_width: int) -> PanelContainer:
 	style.content_margin_top    = 28
 	style.content_margin_bottom = 28
 	panel.add_theme_stylebox_override("panel", style)
-	panel.set_anchors_preset(Control.PRESET_CENTER)
 	panel.custom_minimum_size = Vector2(min_width, 0)
-	parent.add_child(panel)
+	center.add_child(panel)
 	return panel
 
 func _make_overlay_vbox(parent: Control, separation: int) -> VBoxContainer:
