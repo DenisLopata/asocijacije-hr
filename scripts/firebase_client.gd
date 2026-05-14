@@ -18,14 +18,14 @@ signal _js_response(ok: int, result: String)
 var _js_dispatcher: JavaScriptObject  # held to prevent GC
 
 func _ready() -> void:
-	print("FirebaseClient _ready: OS=%s" % OS.get_name())
+	push_warning("FirebaseClient _ready: OS=%s" % OS.get_name())
 	if OS.get_name() != "Web":
-		print("FirebaseClient: non-web path")
+		push_warning("FirebaseClient: non-web path")
 		return
-	print("FirebaseClient: web path active")
+	push_warning("FirebaseClient: web path active")
 	var w := JavaScriptBridge.get_interface("window")
-	print("FirebaseClient: _fb_submit exists=%s" % str(w.has("_fb_submit")))
-	print("FirebaseClient: firebase global exists=%s" % str(w.has("firebase")))
+	push_warning("FirebaseClient: _fb_submit exists=%s" % str(w.has("_fb_submit")))
+	push_warning("FirebaseClient: firebase global exists=%s" % str(w.has("firebase")))
 	_js_dispatcher = JavaScriptBridge.create_callback(func(args):
 		_js_response.emit(int(args[0]), str(args[1]))
 	)
@@ -132,7 +132,7 @@ func mark_submitted(mode: String, date_str: String) -> void:
 func submit_score(player_name: String, score: int, time_sec: float,
 		mode: String, date_str: String, seed: int) -> bool:
 	_last_error = ""
-	print("FirebaseClient submit_score: OS=%s" % OS.get_name())
+	push_warning("FirebaseClient submit_score: OS=%s" % OS.get_name())
 
 	if OS.get_name() == "Web":
 		var r = await _js_call("_fb_submit",
