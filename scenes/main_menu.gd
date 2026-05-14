@@ -162,14 +162,14 @@ func _build_buttons(parent: VBoxContainer) -> void:
 		btn.pressed.connect(info["action"])
 		parent.add_child(btn)
 		_build_spacer(parent, 14)
-		# Stagger-in on ready
+		# Stagger-in: fade + scale only — no position tweak inside VBox (#layout-safe)
 		btn.modulate = Color(1, 1, 1, 0)
-		btn.position.y += 18
+		btn.scale    = Vector2(0.96, 0.96)
 		var delay: float = i * ANIM_BTN_STAGGER + ANIM_FADE_IN
 		var t: Tween = create_tween().set_parallel(true)
 		t.tween_property(btn, "modulate", Color.WHITE, 0.28).set_delay(delay)
-		t.tween_property(btn, "position:y", 0.0, 0.28) \
-			.set_delay(delay).set_trans(Tween.TRANS_QUAD).set_ease(Tween.EASE_OUT)
+		t.tween_property(btn, "scale", Vector2.ONE, 0.28) \
+			.set_delay(delay).set_trans(Tween.TRANS_BACK).set_ease(Tween.EASE_OUT)
 
 func _build_bottom_bar() -> void:
 	var bar: HBoxContainer = HBoxContainer.new()
