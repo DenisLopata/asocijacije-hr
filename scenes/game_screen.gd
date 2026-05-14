@@ -1234,58 +1234,107 @@ func _show_name_picker() -> void:
 
 	_add_separator(vbox)
 
-	var grid: GridContainer = GridContainer.new()
-	grid.columns = 6
-	grid.add_theme_constant_override("h_separation", 6)
-	grid.add_theme_constant_override("v_separation", 6)
-	vbox.add_child(grid)
-
 	# Use an Array as a mutable reference container so lambdas share state
 	var name_buf: Array[String] = [""]
-
-	const CHARS := ["A","B","C","Č","D","E","F","G","H","I","J","K","L","M","N","O","P","R","S","Š","T","U","V","Z","Ž","Ć","Đ","0","1","2","3","4","5","6","7","8","9","-"," ","DEL","OK"]
-
 	# ok_btn_ref stored in an Array so lambdas capture the container by ref, not the null value
 	var ok_btn_holder: Array[Button] = []
 
-	for ch in CHARS:
-		var btn: Button = Button.new()
-		btn.custom_minimum_size = Vector2(54, 54)
-		btn.add_theme_font_size_override("font_size", 16)
+	const KEY_ROWS := [
+		["0","1","2","3","4","5","6","7","8","9"],
+		["A","B","C","Č","Ć","D","Đ","E","F","G"],
+		["H","I","J","K","L","M","N","O","P","R"],
+		["S","Š","T","U","V","Z","Ž"],
+		["-"," "],
+		["DEL","OK"],
+	]
 
-		if ch == " ":
-			btn.text = "SPC"
-			btn.theme_type_variation = "TileButton"
-		elif ch == "DEL" or ch == "OK":
-			btn.text = ch
-			btn.theme_type_variation = "GhostButton"
-		else:
-			btn.text = ch
-			btn.theme_type_variation = "TileButton"
+	var kbd_vbox := VBoxContainer.new()
+	kbd_vbox.add_theme_constant_override("separation", 5)
+	vbox.add_child(kbd_vbox)
 
-		if ch == "OK":
-			btn.disabled = true
-			ok_btn_holder.append(btn)
+	for row_chars in KEY_ROWS:
+		var row_hbox := HBoxContainer.new()
+		row_hbox.alignment = BoxContainer.ALIGNMENT_CENTER
+		row_hbox.add_theme_constant_override("separation", 5)
+		row_hbox.size_flags_horizontal = Control.SIZE_EXPAND_FILL
+		kbd_vbox.add_child(row_hbox)
 
-		var char_val: String = ch
-		btn.pressed.connect(func() -> void:
-			var ok_btn: Button = ok_btn_holder[0] if ok_btn_holder.size() > 0 else null
-			if char_val == "DEL":
-				if name_buf[0].length() > 0:
-					name_buf[0] = name_buf[0].substr(0, name_buf[0].length() - 1)
-					name_display.text = name_buf[0]
-					if ok_btn and is_instance_valid(ok_btn):
-						ok_btn.disabled = name_buf[0].length() < 4
-			elif char_val == "OK":
-				_on_name_confirmed(name_buf[0])
+		for ch in row_chars:
+			var btn := Button.new()
+			btn.focus_mode = Control.FOCUS_NONE
+			btn.add_theme_font_size_override("font_size", 15)
+			btn.add_theme_font_override("font", _make_font(500))
+
+			var is_fn   := ch == "DEL" or ch == "OK"
+			var is_num  := ch.is_valid_int()
+			var is_spc  := ch == " "
+
+			# Key height is uniform; width expands to fill row
+			btn.custom_minimum_size = Vector2(0, 46)
+			btn.size_flags_horizontal = Control.SIZE_EXPAND_FILL
+
+			if is_fn:
+				var key_color := C_SUBMIT_ON if ch == "OK" else C_SURFACE.lightened(0.05)
+				var sb_n := _rounded_box(key_color, 8)
+				sb_n.border_width_bottom = 3
+				sb_n.border_color = key_color.darkened(0.35)
+				btn.add_theme_stylebox_override("normal", sb_n)
+				var sb_h := _rounded_box(key_color.lightened(0.08), 8)
+				sb_h.border_width_bottom = 3
+				sb_h.border_color = key_color.darkened(0.35)
+				btn.add_theme_stylebox_override("hover", sb_h)
+				var sb_p := _rounded_box(key_color.darkened(0.12), 8)
+				sb_p.border_width_bottom = 1
+				sb_p.border_color = key_color.darkened(0.35)
+				sb_p.content_margin_top = 5
+				btn.add_theme_stylebox_override("pressed", sb_p)
+				btn.text = "⌫" if ch == "DEL" else ch
+				btn.add_theme_font_size_override("font_size", 16)
+				if ch == "OK":
+					btn.add_theme_font_override("font", _make_font(700))
+					btn.disabled = true
+					ok_btn_holder.append(btn)
 			else:
-				if name_buf[0].length() < 10:
-					var insert_char := " " if char_val == " " else char_val
-					name_buf[0] += insert_char
-					name_display.text = name_buf[0]
-					if ok_btn and is_instance_valid(ok_btn):
-						ok_btn.disabled = name_buf[0].length() < 4)
-		grid.add_child(btn)
+				var key_color: Color
+				if is_num:
+					key_color = C_SURFACE.lightened(0.06)
+				elif is_spc:
+					key_color = C_SURFACE.lightened(0.04)
+				else:
+					key_color = C_TILE_NORMAL
+				var sb_n := _rounded_box(key_color, 8)
+				sb_n.border_width_bottom = 3
+				sb_n.border_color = key_color.darkened(0.40)
+				btn.add_theme_stylebox_override("normal", sb_n)
+				var sb_h := _rounded_box(key_color.lightened(0.08), 8)
+				sb_h.border_width_bottom = 3
+				sb_h.border_color = key_color.darkened(0.40)
+				btn.add_theme_stylebox_override("hover", sb_h)
+				var sb_p := _rounded_box(key_color.darkened(0.10), 8)
+				sb_p.border_width_bottom = 1
+				sb_p.border_color = key_color.darkened(0.40)
+				sb_p.content_margin_top = 5
+				btn.add_theme_stylebox_override("pressed", sb_p)
+				btn.text = "SPC" if is_spc else ch
+
+			var char_val: String = ch
+			btn.pressed.connect(func() -> void:
+				var ok_btn: Button = ok_btn_holder[0] if ok_btn_holder.size() > 0 else null
+				if char_val == "DEL":
+					if name_buf[0].length() > 0:
+						name_buf[0] = name_buf[0].substr(0, name_buf[0].length() - 1)
+						name_display.text = name_buf[0]
+						if ok_btn and is_instance_valid(ok_btn):
+							ok_btn.disabled = name_buf[0].length() < 4
+				elif char_val == "OK":
+					_on_name_confirmed(name_buf[0])
+				else:
+					if name_buf[0].length() < 10:
+						name_buf[0] += char_val
+						name_display.text = name_buf[0]
+						if ok_btn and is_instance_valid(ok_btn):
+							ok_btn.disabled = name_buf[0].length() < 4)
+			row_hbox.add_child(btn)
 
 	_animate_overlay_in(dim, panel)
 
