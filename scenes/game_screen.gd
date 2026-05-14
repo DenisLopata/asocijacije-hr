@@ -308,7 +308,7 @@ func _build_header(parent: VBoxContainer) -> void:
 
 	var settings_btn: Button = Button.new()
 	settings_btn.text = _icon("settings")
-	settings_btn.add_theme_font_override("font", load(ICON_FONT_PATH))
+	settings_btn.add_theme_font_override("font", _icon_font())
 	settings_btn.add_theme_font_size_override("font_size", 22)
 	settings_btn.custom_minimum_size = Vector2(44, 44)
 	settings_btn.theme_type_variation = "GhostButton"
@@ -338,7 +338,7 @@ func _build_header(parent: VBoxContainer) -> void:
 
 	_puzzle_stars = Label.new()
 	_puzzle_stars.theme_type_variation = "MetaLabel"
-	_puzzle_stars.add_theme_font_override("font", load(ICON_FONT_PATH))
+	_puzzle_stars.add_theme_font_override("font", _icon_font())
 	_puzzle_stars.add_theme_font_size_override("font_size", 14)
 	meta_row.add_child(_puzzle_stars)
 
@@ -379,7 +379,7 @@ func _build_feedback_area(parent: VBoxContainer) -> void:
 	# Icon column
 	_feedback_icon = Label.new()
 	_feedback_icon.vertical_alignment = VERTICAL_ALIGNMENT_CENTER
-	_feedback_icon.add_theme_font_override("font", load(ICON_FONT_PATH))
+	_feedback_icon.add_theme_font_override("font", _icon_font())
 	_feedback_icon.add_theme_font_size_override("font_size", 22)
 	_feedback_icon.custom_minimum_size = Vector2(40, 0)
 	_feedback_icon.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
@@ -610,14 +610,10 @@ func _make_tile(word: String) -> Button:
 func _icon_font() -> FontFile:
 	return load(ICON_FONT_PATH) as FontFile
 
-func _make_icon_lbl(icon_name: String, size: int = 20) -> Label:
-	var lbl := Label.new()
-	lbl.text = _icon(icon_name)
-	lbl.add_theme_font_override("font", _icon_font())
-	lbl.add_theme_font_size_override("font_size", size)
-	lbl.vertical_alignment = VERTICAL_ALIGNMENT_CENTER
-	lbl.mouse_filter = Control.MOUSE_FILTER_IGNORE
-	return lbl
+func _mixed_font() -> FontFile:
+	var f := load(FONT_PATH).duplicate() as FontFile
+	f.fallbacks = [_icon_font()]
+	return f
 
 func _make_ghost_btn(label: String, icon_name: String = "") -> Button:
 	var btn: Button = Button.new()
@@ -625,48 +621,22 @@ func _make_ghost_btn(label: String, icon_name: String = "") -> Button:
 	if icon_name.is_empty():
 		btn.text = label
 	else:
-		btn.text = ""
-		var hbox := HBoxContainer.new()
-		hbox.alignment = BoxContainer.ALIGNMENT_CENTER
-		hbox.add_theme_constant_override("separation", 6)
-		hbox.mouse_filter = Control.MOUSE_FILTER_IGNORE
-		hbox.set_anchors_and_offsets_preset(Control.PRESET_FULL_RECT)
-		var ico := _make_icon_lbl(icon_name, 18)
-		var txt := Label.new()
-		txt.text = label
-		txt.vertical_alignment = VERTICAL_ALIGNMENT_CENTER
-		txt.mouse_filter = Control.MOUSE_FILTER_IGNORE
-		hbox.add_child(ico)
-		hbox.add_child(txt)
-		btn.add_child(hbox)
+		btn.text = _icon(icon_name) + "  " + label
+		btn.add_theme_font_override("font", _mixed_font())
+		btn.add_theme_font_size_override("font_size", 16)
 	return btn
 
 func _make_hint_btn() -> Button:
 	var btn: Button = Button.new()
 	btn.custom_minimum_size = Vector2(138, 46)
-	btn.text = ""
-	var hbox := HBoxContainer.new()
-	hbox.alignment = BoxContainer.ALIGNMENT_CENTER
-	hbox.add_theme_constant_override("separation", 6)
-	hbox.mouse_filter = Control.MOUSE_FILTER_IGNORE
-	hbox.set_anchors_and_offsets_preset(Control.PRESET_FULL_RECT)
-	var ico := _make_icon_lbl("lightbulb", 18)
-	var txt := Label.new()
-	txt.text = "Hint  (%d)" % GameState.MAX_HINTS
-	txt.vertical_alignment = VERTICAL_ALIGNMENT_CENTER
-	txt.mouse_filter = Control.MOUSE_FILTER_IGNORE
-	hbox.add_child(ico)
-	hbox.add_child(txt)
-	btn.add_child(hbox)
+	btn.text = _icon("lightbulb") + "  Hint  (%d)" % GameState.MAX_HINTS
+	btn.add_theme_font_override("font", _mixed_font())
+	btn.add_theme_font_size_override("font_size", 16)
 	return btn
 
 func _update_hint_btn() -> void:
 	var left: int = _state.hints_remaining
-	var hbox := _hint_btn.get_child(0) as HBoxContainer
-	if hbox:
-		var txt := hbox.get_child(1) as Label
-		if txt:
-			txt.text = "Hint  (%d)" % left
+	_hint_btn.text = _icon("lightbulb") + "  Hint  (%d)" % left
 	_hint_btn.disabled = not _state.can_use_hint()
 
 func _make_submit_btn() -> Button:
