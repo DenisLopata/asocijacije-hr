@@ -171,8 +171,22 @@ func _unhandled_input(event: InputEvent) -> void:
 	if not OS.is_debug_build():
 		return
 	if event is InputEventKey and event.pressed and not event.echo:
-		if event.keycode == KEY_D and event.ctrl_pressed:
+		if event.keycode == KEY_D and event.ctrl_pressed and not event.shift_pressed:
 			_debug_skip_to_leaderboard()
+		elif event.keycode == KEY_D and event.ctrl_pressed and event.shift_pressed:
+			_debug_clear_daily()
+
+func _debug_clear_daily() -> void:
+	var today := Time.get_date_dict_from_system()
+	var date_str := "%d-%02d-%02d" % [today["year"], today["month"], today["day"]]
+	var cfg := ConfigFile.new()
+	cfg.load(SaveManager.PREFS_PATH)
+	cfg.erase_section_key("daily_single", date_str + "_score")
+	cfg.erase_section_key("daily_single", date_str + "_time")
+	cfg.erase_section_key("daily_five",   date_str + "_score")
+	cfg.erase_section_key("daily_five",   date_str + "_time")
+	cfg.save(SaveManager.PREFS_PATH)
+	print("[DEBUG] Cleared daily results for ", date_str)
 
 func _debug_skip_to_leaderboard() -> void:
 	if _is_daily:
@@ -1393,7 +1407,7 @@ func _show_leaderboard_overlay(mode: String, date_str: String, my_uid: String) -
 
 		for i in entries.size():
 			var entry: Dictionary = entries[i]
-			var is_me := entry["uid"] == my_uid
+			var is_me: bool = entry["uid"] == my_uid
 
 			var row := HBoxContainer.new()
 			row.add_theme_constant_override("separation", 10)

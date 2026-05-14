@@ -65,6 +65,23 @@ var _overlay_tag: String = ""
 var _fade_rect: ColorRect
 
 # ── Boot ───────────────────────────────────────────────────────────────────
+func _unhandled_input(event: InputEvent) -> void:
+	if not OS.is_debug_build():
+		return
+	if event is InputEventKey and event.pressed and not event.echo:
+		if event.keycode == KEY_D and event.ctrl_pressed and event.shift_pressed:
+			var today := Time.get_date_dict_from_system()
+			var date_str := "%d-%02d-%02d" % [today["year"], today["month"], today["day"]]
+			var cfg := ConfigFile.new()
+			cfg.load(SaveManager.PREFS_PATH)
+			cfg.erase_section_key("daily_single", date_str + "_score")
+			cfg.erase_section_key("daily_single", date_str + "_time")
+			cfg.erase_section_key("daily_five",   date_str + "_score")
+			cfg.erase_section_key("daily_five",   date_str + "_time")
+			cfg.save(SaveManager.PREFS_PATH)
+			print("[DEBUG] Cleared daily results for ", date_str)
+			get_tree().reload_current_scene()
+
 func _ready() -> void:
 	_register_theme_variations()
 	_build_ui()
