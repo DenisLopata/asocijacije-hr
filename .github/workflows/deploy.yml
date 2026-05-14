@@ -1,0 +1,41 @@
+name: Export and Deploy
+
+on:
+  push:
+    branches: [main]
+
+jobs:
+  deploy:
+    runs-on: ubuntu-latest
+
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Install Godot 4.6
+        run: |
+          wget -q https://github.com/godotengine/godot/releases/download/4.6-stable/Godot_v4.6-stable_linux.x86_64.zip
+          unzip -q Godot_v4.6-stable_linux.x86_64.zip
+          mv Godot_v4.6-stable_linux.x86_64 godot
+          chmod +x godot
+
+      - name: Install Web export templates
+        run: |
+          mkdir -p ~/.local/share/godot/export_templates/4.6.stable
+          wget -q https://github.com/godotengine/godot/releases/download/4.6-stable/Godot_v4.6-stable_export_templates.tpz
+          unzip -q Godot_v4.6-stable_export_templates.tpz
+          mv templates/* ~/.local/share/godot/export_templates/4.6.stable/
+
+      - name: Export to Web
+        run: |
+          mkdir -p export/web
+          ./godot --headless --export-release "Web" export/web/index.html 2>&1 || true
+
+      - name: Apply custom boot splash and HTML fixes
+        run: |
+          cp assets/boot_splash.png export/web/index.png
+          sed -i 's/background-color: #242424/background-color: #1c1c21/' export/web/index.html
+
+      - name: Deploy to Firebase Hosting
+        run: |
+          npm install -g firebase-tools --silent
+          firebase deploy --only hosting --token "${{ secrets.FIREBASE_TOKEN }}" --project asocijacije-hr
