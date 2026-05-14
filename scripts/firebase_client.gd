@@ -17,16 +17,23 @@ func _http(method: int, url: String, body: String, content_type: String, token: 
 	var http := HTTPRequest.new()
 	http.timeout = 10.0
 	add_child(http)
-	var headers := PackedStringArray(["Content-Type: " + content_type])
+	var headers := PackedStringArray([
+		"Content-Type: " + content_type,
+		"Accept-Encoding: identity",
+	])
 	if token != "":
 		headers.append("Authorization: Bearer " + token)
-	if http.request(url, headers, method, body) != OK:
+	var req_err := http.request(url, headers, method, body)
+	if req_err != OK:
+		print("FirebaseClient: request() failed err=%d url=%s" % [req_err, url.left(60)])
 		http.queue_free()
 		return null
 	var data = await http.request_completed
 	http.queue_free()
+	var result_code: int = data[0]
 	var code: int = data[1]
 	var text: String = (data[3] as PackedByteArray).get_string_from_utf8()
+	print("FirebaseClient: result=%d http=%d url=%s" % [result_code, code, url.left(60)])
 	if code < 200 or code >= 300:
 		push_warning("FirebaseClient HTTP %d: %s" % [code, text.left(300)])
 		return null
