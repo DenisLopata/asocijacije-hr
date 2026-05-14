@@ -35,6 +35,7 @@ var score: int = 0
 var category_scores: Dictionary = {}
 var _peeked_category: PuzzleData.Category = null
 var guess_history: Array = []
+var puzzle_time_sec: float = 0.0
 
 func _init(p_puzzle: PuzzleData.Puzzle) -> void:
 	puzzle = p_puzzle

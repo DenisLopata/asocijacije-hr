@@ -4,7 +4,8 @@ const SAVE_PATH  := "user://save.cfg"
 const PREFS_PATH := "user://prefs.cfg"
 
 # ── Session save/load ──────────────────────────────────────────────────────
-static func save_session(puzzles: Array, current_index: int, state: GameState) -> void:
+static func save_session(puzzles: Array, current_index: int, state: GameState,
+		puzzle_times: Array = [], puzzle_scores: Array = [], puzzle_start_time: float = 0.0) -> void:
 	var cfg := ConfigFile.new()
 	cfg.set_value("session", "current_index", current_index)
 	cfg.set_value("session", "puzzle_count", puzzles.size())
@@ -28,6 +29,10 @@ static func save_session(puzzles: Array, current_index: int, state: GameState) -
 	cfg.set_value("state", "hints_used",         state.hints_used)
 	cfg.set_value("state", "hint_multiplier",    state.hint_multiplier)
 	cfg.set_value("state", "score",              state.score)
+
+	cfg.set_value("progress", "puzzle_times",      puzzle_times)
+	cfg.set_value("progress", "puzzle_scores",     puzzle_scores)
+	cfg.set_value("progress", "puzzle_start_time", puzzle_start_time)
 	cfg.save(SAVE_PATH)
 
 static func load_session() -> Dictionary:
@@ -72,7 +77,10 @@ static func load_session() -> Dictionary:
 			"hints_used":         cfg.get_value("state", "hints_used",         0),
 			"hint_multiplier":    cfg.get_value("state", "hint_multiplier",    1.0),
 			"score":              cfg.get_value("state", "score",              0),
-		}
+		},
+		"puzzle_times":       cfg.get_value("progress", "puzzle_times",      []),
+		"puzzle_scores":      cfg.get_value("progress", "puzzle_scores",     []),
+		"puzzle_start_time":  cfg.get_value("progress", "puzzle_start_time", 0.0),
 	}
 
 static func clear_save() -> void:
@@ -98,6 +106,18 @@ static func save_best_score(score: int) -> void:
 	if score > current:
 		cfg.set_value("stats", "best_score", score)
 		cfg.save(PREFS_PATH)
+
+static func save_puzzle_start(timestamp: float) -> void:
+	var cfg := ConfigFile.new()
+	cfg.load(SAVE_PATH)  # load existing so we don't wipe other keys
+	cfg.set_value("progress", "puzzle_start_time", timestamp)
+	cfg.save(SAVE_PATH)
+
+static func load_puzzle_start() -> float:
+	var cfg := ConfigFile.new()
+	if cfg.load(SAVE_PATH) != OK:
+		return 0.0
+	return cfg.get_value("progress", "puzzle_start_time", 0.0)
 
 static func load_prefs() -> Dictionary:
 	var cfg := ConfigFile.new()

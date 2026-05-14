@@ -154,6 +154,10 @@ var _tile_buttons: Dictionary = {}
 var _score_label: Label
 var _score_display: int = 0
 
+var _puzzle_times: Array[float] = []
+var _puzzle_scores: Array[int] = []
+var _puzzle_start_time: float = 0.0
+
 var _overlay: Control = null
 var _overlay_tag: String = ""
 var _fade_rect: ColorRect
@@ -476,20 +480,10 @@ func _build_nav_row(parent: VBoxContainer) -> void:
 	menu_btn.theme_type_variation = "GhostButton"
 	row.add_child(menu_btn)
 
-	var prev_btn: Button = _make_ghost_btn("Prethodni", "prev")
-	prev_btn.pressed.connect(func() -> void: _navigate_puzzle(-1))
-	row.add_child(prev_btn)
-	prev_btn.theme_type_variation = "GhostButton"
-
 	var new_btn: Button = _make_ghost_btn("Novi set", "refresh")
 	new_btn.pressed.connect(_on_new_set)
-	row.add_child(new_btn)
 	new_btn.theme_type_variation = "GhostButton"
-
-	var next_btn: Button = _make_ghost_btn("Sljedeći", "next")
-	next_btn.pressed.connect(func() -> void: _navigate_puzzle(1))
-	row.add_child(next_btn)
-	next_btn.theme_type_variation = "GhostButton"
+	row.add_child(new_btn)
 
 # ── Puzzle loading ─────────────────────────────────────────────────────────
 func _load_puzzle(index: int) -> void:
@@ -507,6 +501,9 @@ func _load_puzzle(index: int) -> void:
 	_state.score_changed.connect(_on_score_changed)
 	_state.game_won.connect(_on_game_won)
 	_state.game_lost.connect(_on_game_lost)
+
+	_puzzle_start_time = Time.get_unix_time_from_system()
+	SaveManager.save_puzzle_start(_puzzle_start_time)
 
 	_score_display = 0
 	_score_label.text = "Bodovi: 0"
@@ -903,6 +900,10 @@ func _flash_tiles_wrong(btns: Array[Button]) -> void:  # (#1)
 		.set_delay(ANIM_FLASH)
 
 func _on_game_won() -> void:
+	var elapsed := Time.get_unix_time_from_system() - _puzzle_start_time
+	_state.puzzle_time_sec = elapsed
+	_puzzle_scores.append(_state.score)
+	_puzzle_times.append(elapsed)
 	var gen := _state_generation  # capture before await (#4)
 	_show_typed_feedback(FeedbackType.END, "Čestitamo!  Riješili ste slagalicu!", true)
 	_submit_btn.disabled = true
@@ -915,6 +916,10 @@ func _on_game_won() -> void:
 	_show_summary(true)
 
 func _on_game_lost() -> void:
+	var elapsed := Time.get_unix_time_from_system() - _puzzle_start_time
+	_state.puzzle_time_sec = elapsed
+	_puzzle_scores.append(_state.score)
+	_puzzle_times.append(elapsed)
 	var gen := _state_generation
 	_show_typed_feedback(FeedbackType.END, "Igra završena — ostali ste bez pokušaja", true)
 	_submit_btn.disabled = true
@@ -1130,7 +1135,7 @@ func _show_summary(won: bool) -> void:
 	close_btn.pressed.connect(_close_overlay)
 	btn_row.add_child(close_btn)
 
-	# "Next puzzle" only if not already complete and there is a next (#2)
+	# "Next puzzle" or "Završi" on last puzzle
 	if _current_puzzle_index < _puzzles.size() - 1:
 		var next_btn: Button = _make_ghost_btn("Sljedeća", "next")
 		next_btn.theme_type_variation = "GhostButton"
@@ -1138,8 +1143,117 @@ func _show_summary(won: bool) -> void:
 			_close_overlay()
 			_navigate_puzzle(1))
 		btn_row.add_child(next_btn)
+	else:
+		var finish_btn: Button = _make_ghost_btn("Završi")
+		finish_btn.theme_type_variation = "GhostButton"
+		finish_btn.pressed.connect(func() -> void:
+			_close_overlay()
+			_show_name_picker())
+		btn_row.add_child(finish_btn)
 
 	_animate_overlay_in(dim, panel)
+
+# ── Name picker overlay ────────────────────────────────────────────────────
+func _show_name_picker() -> void:
+	_close_overlay()
+
+	var dim: ColorRect = _make_dim()
+	_overlay = dim
+	_overlay_tag = "name_picker"
+
+	var panel: PanelContainer = _make_overlay_panel(dim, 400)
+	var vbox: VBoxContainer = _make_overlay_vbox(panel, 14)
+
+	var header: Label = Label.new()
+	header.text = "Unesite ime za ljestvicu"
+	header.theme_type_variation = "TitleLabel"
+	header.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
+	header.add_theme_font_size_override("font_size", 20)
+	header.add_theme_font_override("font", _make_font(700))
+	vbox.add_child(header)
+
+	_add_separator(vbox)
+
+	var name_display: Label = Label.new()
+	name_display.text = ""
+	name_display.theme_type_variation = "ScoreLabel"
+	name_display.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
+	name_display.add_theme_font_size_override("font_size", 26)
+	name_display.add_theme_font_override("font", _make_font(600))
+	name_display.custom_minimum_size = Vector2(0, 44)
+	vbox.add_child(name_display)
+
+	_add_separator(vbox)
+
+	var grid: GridContainer = GridContainer.new()
+	grid.columns = 6
+	grid.add_theme_constant_override("h_separation", 6)
+	grid.add_theme_constant_override("v_separation", 6)
+	vbox.add_child(grid)
+
+	# Use an Array as a mutable reference container so lambdas share state
+	var name_buf: Array[String] = [""]
+
+	const CHARS := ["A","B","C","Č","D","E","F","G","H","I","J","K","L","M","N","O","P","R","S","Š","T","U","V","Z","Ž","Ć","Đ","0","1","2","3","4","5","6","7","8","9","-"," ","DEL","OK"]
+
+	var ok_btn_ref: Button = null
+
+	for ch in CHARS:
+		var btn: Button = Button.new()
+		btn.custom_minimum_size = Vector2(54, 54)
+		btn.add_theme_font_size_override("font_size", 16)
+
+		if ch == " ":
+			btn.text = "SPC"
+			btn.theme_type_variation = "TileButton"
+		elif ch == "DEL" or ch == "OK":
+			btn.text = ch
+			btn.theme_type_variation = "GhostButton"
+		else:
+			btn.text = ch
+			btn.theme_type_variation = "TileButton"
+
+		if ch == "OK":
+			btn.disabled = true
+			ok_btn_ref = btn
+
+		var char_val := ch
+		btn.pressed.connect(func() -> void:
+			if char_val == "DEL":
+				if name_buf[0].length() > 0:
+					name_buf[0] = name_buf[0].substr(0, name_buf[0].length() - 1)
+					name_display.text = name_buf[0]
+					if ok_btn_ref and is_instance_valid(ok_btn_ref):
+						ok_btn_ref.disabled = name_buf[0].is_empty()
+			elif char_val == "OK":
+				_on_name_confirmed(name_buf[0])
+			else:
+				if name_buf[0].length() < 10:
+					var insert_char := " " if char_val == " " else char_val
+					name_buf[0] += insert_char
+					name_display.text = name_buf[0]
+					if ok_btn_ref and is_instance_valid(ok_btn_ref):
+						ok_btn_ref.disabled = name_buf[0].is_empty())
+		grid.add_child(btn)
+
+	_animate_overlay_in(dim, panel)
+
+func _on_name_confirmed(player_name: String) -> void:
+	var total_score := 0
+	var total_time := 0.0
+	for s in _puzzle_scores:
+		total_score += s
+	for t in _puzzle_times:
+		total_time += t
+	print("=== SESSION COMPLETE ===")
+	print("Player: ", player_name)
+	print("Total score: ", total_score)
+	print("Total time: %.1fs" % total_time)
+	for i in _puzzle_scores.size():
+		print("  Puzzle %d: %d pts in %.1fs" % [i+1, _puzzle_scores[i], _puzzle_times[i]])
+	_close_overlay()
+	SaveManager.clear_save()
+	_go_to_menu()
 
 # ── Settings overlay (#14, #18) ────────────────────────────────────────────
 func _on_settings() -> void:
@@ -1405,6 +1519,9 @@ func _on_new_set() -> void:
 	_puzzles = PuzzleData.get_puzzles()
 	_current_puzzle_index = 0
 	_session_scores.clear()
+	_puzzle_times.clear()
+	_puzzle_scores.clear()
+	_puzzle_start_time = 0.0
 	_update_session_label()
 	_close_overlay()
 	_load_puzzle(0)
