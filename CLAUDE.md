@@ -40,6 +40,7 @@ Three modes, all accessible from the main menu:
 - Daily seeds are deterministic — all players get the same puzzle on the same date.
 - "Once a day" is enforced client-side (device clock). Server-side validation via seed storage in Firestore is planned.
 - Completed daily modes show "Već odigrano • score • time" as a clickable button — tapping opens the leaderboard overlay.
+- Both Dnevni izazov and Dnevnih 5 track an independent **daily streak** — consecutive days played. Shown as a flame icon + count on the menu button when streak ≥ 2 (both before and after playing that day).
 - `SaveManager.save_daily_result` / `load_daily_result` — single puzzle daily (prefs section `daily_single`)
 - `SaveManager.save_five_result` / `load_five_result` — five puzzle daily (prefs section `daily_five`)
 - `SaveManager.get_today()` — returns `{date_str, date_label, daily_seed, five_seed}`. Use this everywhere; do not compute date/seed inline.
@@ -53,11 +54,33 @@ Three modes, all accessible from the main menu:
 - Name picker: Croatian alphabet + digits + hyphen + space, 4–10 characters, OK disabled until 4 chars entered.
 - `_puzzle_times: Array[float]` and `_puzzle_scores: Array[int]` accumulate across puzzles in a session.
 
+### Overlays in game_screen.gd
+
+`game_screen.gd` (~1880 lines) contains all game UI including several full-screen overlays:
+
+- **Summary overlay** (`_show_summary`) — per-puzzle stats, total score/time, colour-coded guess history grid (visual record of all guesses by difficulty colour).
+- **Name picker overlay** (`_show_name_picker`) — on-screen keyboard with Croatian alphabet (A–Ž) + digits + hyphen + space; 4–10 chars; OK button disabled until 4 chars entered.
+- **Submitting overlay** (`_show_submitting_overlay`) — spinner shown while Firebase write is in flight; transitions to leaderboard on success or shows error on failure.
+- **Leaderboard overlay** (`_show_leaderboard_overlay`) — top 20 scores from Firestore; current player row highlighted; rank coloured by position.
+- **Settings overlay** (`_show_settings_overlay`) — font size picker (14/18/22 px), session clear. Persisted via `SaveManager.save_prefs(tile_font_size)`.
+
+### Other game_screen.gd features
+
+- **Hint button** — label reads `"Hint (%d)"` with remaining hint count; uses `HintButton` theme variation.
+- **One-away feedback** — when a guess misses by one word, the outlier word pulses amber; separate feedback message shown.
+- **Confetti** — `CPUParticles2D` burst on win, colours drawn from all four difficulty tiers.
+- **Background shader** — animated aurora/gradient shader, same as main_menu.gd.
+- **Puzzle counter prefix** — `"Dnevni  "` for Dnevni izazov, `"Dnevnih 5  "` for Dnevnih 5, `"Slagalica "` for Nova igra.
+
 ## Debug shortcuts
 
 In debug builds (`OS.is_debug_build()`) only — stripped from `--export-release`:
-- **Ctrl+D** on game screen: fills fake scores/times and opens name picker immediately.
-- **Ctrl+Shift+D** on game screen or main menu: clears today's daily results from prefs and reloads the scene.
+
+| Shortcut | Where | Effect |
+|----------|-------|--------|
+| **Ctrl+D** | Game screen | Fills fake scores/times and opens name picker immediately |
+| **Ctrl+Shift+D** | Game screen or main menu | Clears today's daily results from prefs and reloads the scene |
+| **Ctrl+Shift+S** | Main menu | Injects a fake 5-day streak for both daily modes (last_date = yesterday) and reloads |
 
 ## Key conventions
 
@@ -89,6 +112,8 @@ All tweens use `pivot_offset = size / 2.0` before scaling so nodes scale from ce
 ### Theme variations
 All text styling goes through theme type variations defined in `game_theme.tres`. Override font weight inline via `_make_font(weight)`.
 
+Registered type variations (defined in `game_theme.tres`, applied in game_screen.gd): `TileButton`, `GhostButton`, `HintButton`, `FeedbackPanel`, `TitleLabel`, `SubtitleLabel`, `MetaLabel`, `ScoreLabel`, `FeedbackLabel`, `SolvedCategoryLabel`, `SolvedWordsLabel`.
+
 ## Puzzle data format
 
 ```gdscript
@@ -116,7 +141,13 @@ Words are stored lowercase in data, displayed `.to_upper()` in UI.
 - `SAVE_PATH` = `user://save.cfg` — in-progress session (puzzles, state, timers). Cleared on session end.
 - `PREFS_PATH` = `user://prefs.cfg` — persistent preferences and daily results. Never cleared.
 - Daily results stored in prefs under sections `daily_single` and `daily_five`, keyed by `YYYY-MM-DD`.
-- Firebase submission dedup flag stored in prefs under section `submitted`, keyed by `mode_YYYY-MM-DD`.
+- Firebase submission dedup flag stored in prefs under section `submitted`, keyed by `mode_YYYY-MM-DD` (e.g. `"daily_2025-05-14"`, `"five_2025-05-14"`).
+- Streak data stored in prefs under sections `streak_daily` and `streak_five`, each with keys `last_date` and `count`.
+- `update_streak(date_str, mode)` — increments streak if yesterday was played, resets to 1 if a day was skipped; idempotent for same-day calls. Call after saving daily result.
+- `load_streak(mode) -> int` — returns current streak count, or 0 if expired (last play was before yesterday). Mode is `"daily"` or `"five"`.
+- `save_prefs(tile_font_size: int, best_score: int = -1)` — persists settings overlay choices; `best_score` is optional.
+- `save_best_score(score: int)` — writes the all-time best Nova igra score to prefs.
+- `save_puzzle_start(time: float)` / `load_puzzle_start() -> float` — checkpoint for per-puzzle elapsed time across scene reloads.
 
 ## CI/CD pipeline
 
@@ -135,7 +166,7 @@ Push to `main` triggers `.github/workflows/deploy.yml`:
 - **Config:** `firebase.json` — sets COOP/COEP headers required for Godot's WebAssembly
 - **Firestore:** live — `leaderboard` collection, anonymous auth, composite index on `mode/date/score/time`
 - **`scripts/firebase_client.gd`** — autoload (`FirebaseClient`). Handles anonymous auth with refresh-token persistence, score submission with token-expiry retry, leaderboard reads with session cache, and player rank via aggregation query.
-  - `submit_score(name, score, time, mode, date_str, seed) -> bool` — writes to Firestore; retries once on 401; calls `mark_submitted` on success
+  - `submit_score(player_name, score, time_sec, mode, date_str, puzzle_seed) -> bool` — writes to Firestore; retries once on 401; calls `mark_submitted` on success
   - `fetch_leaderboard(mode, date_str) -> Array` — cached per session; each entry: `{name, score, time, uid}`
   - `fetch_player_rank(mode, date_str, score) -> int` — count aggregation; returns rank or -1 on failure
   - `was_submitted(mode, date_str) -> bool` / `mark_submitted(...)` — dedup guard in prefs
