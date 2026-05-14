@@ -48,7 +48,27 @@ const RADIUS_TILE : int = 14
 const RADIUS_BTN  : int = 22
 const BORDER_SEL  : int = 3
 
-const FONT_PATH := "res://assets/fonts/Outfit-VariableFont_wght.ttf"
+const FONT_PATH      := "res://assets/fonts/Outfit-VariableFont_wght.ttf"
+const ICON_FONT_PATH := "res://assets/fonts/MaterialSymbolsOutlined.ttf"
+
+# Material Symbols Outlined codepoints -- use char() to avoid source encoding issues
+func _icon(name: String) -> String:
+	const CP := {
+		"settings":  0xE8B8,
+		"shuffle":   0xE043,
+		"close":     0xE5CD,
+		"done":      0xE876,
+		"lightbulb": 0xE90F,
+		"back":      0xE5C4,
+		"prev":      0xE5CB,
+		"next":      0xE5CC,
+		"refresh":   0xE5D5,
+		"menu":      0xE5D2,
+		"star":      0xF09A,
+		"cancel":    0xE888,
+		"undo":      0xE166,
+	}
+	return char(CP.get(name, 0x3F))
 
 const SPARKLE_INTENSITY: Dictionary = {
 	PuzzleData.Difficulty.YELLOW: 0.0,
@@ -128,6 +148,7 @@ var _feedback_icon: Label
 var _feedback_label: Label
 var _feedback_accent: ColorRect
 var _puzzle_counter: Label
+var _puzzle_stars: Label
 var _session_label: Label
 var _tile_buttons: Dictionary = {}
 var _score_label: Label
@@ -286,7 +307,9 @@ func _build_header(parent: VBoxContainer) -> void:
 	title_row.add_child(title)
 
 	var settings_btn: Button = Button.new()
-	settings_btn.text = "="
+	settings_btn.text = _icon("settings")
+	settings_btn.add_theme_font_override("font", load(ICON_FONT_PATH))
+	settings_btn.add_theme_font_size_override("font_size", 22)
 	settings_btn.custom_minimum_size = Vector2(44, 44)
 	settings_btn.theme_type_variation = "GhostButton"
 	settings_btn.pressed.connect(_on_settings)
@@ -312,6 +335,12 @@ func _build_header(parent: VBoxContainer) -> void:
 	_puzzle_counter = Label.new()
 	_puzzle_counter.theme_type_variation = "MetaLabel"
 	meta_row.add_child(_puzzle_counter)
+
+	_puzzle_stars = Label.new()
+	_puzzle_stars.theme_type_variation = "MetaLabel"
+	_puzzle_stars.add_theme_font_override("font", load(ICON_FONT_PATH))
+	_puzzle_stars.add_theme_font_size_override("font_size", 14)
+	meta_row.add_child(_puzzle_stars)
 
 	_score_label = Label.new()
 	_score_label.theme_type_variation = "ScoreLabel"
@@ -350,7 +379,8 @@ func _build_feedback_area(parent: VBoxContainer) -> void:
 	# Icon column
 	_feedback_icon = Label.new()
 	_feedback_icon.vertical_alignment = VERTICAL_ALIGNMENT_CENTER
-	_feedback_icon.add_theme_font_size_override("font_size", 20)
+	_feedback_icon.add_theme_font_override("font", load(ICON_FONT_PATH))
+	_feedback_icon.add_theme_font_size_override("font_size", 22)
 	_feedback_icon.custom_minimum_size = Vector2(40, 0)
 	_feedback_icon.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
 
@@ -407,8 +437,8 @@ func _build_action_buttons(parent: VBoxContainer) -> void:
 	row.add_theme_constant_override("separation", 10)
 	parent.add_child(row)
 
-	_shuffle_btn  = _make_ghost_btn("Pomiješaj")
-	_deselect_btn = _make_ghost_btn("Poništi odabir")
+	_shuffle_btn  = _make_ghost_btn("Pomiješaj", "shuffle")
+	_deselect_btn = _make_ghost_btn("Poništi odabir", "undo")
 	_submit_btn   = _make_submit_btn()
 	_hint_btn     = _make_hint_btn()
 
@@ -441,22 +471,22 @@ func _build_nav_row(parent: VBoxContainer) -> void:
 	row.add_theme_constant_override("separation", 16)
 	parent.add_child(row)
 
-	var menu_btn: Button = _make_ghost_btn("Izbornik")
+	var menu_btn: Button = _make_ghost_btn("Izbornik", "menu")
 	menu_btn.pressed.connect(_go_to_menu)
 	menu_btn.theme_type_variation = "GhostButton"
 	row.add_child(menu_btn)
 
-	var prev_btn: Button = _make_ghost_btn("< Prethodni")
+	var prev_btn: Button = _make_ghost_btn("Prethodni", "prev")
 	prev_btn.pressed.connect(func() -> void: _navigate_puzzle(-1))
 	row.add_child(prev_btn)
 	prev_btn.theme_type_variation = "GhostButton"
 
-	var new_btn: Button = _make_ghost_btn("Novi set")
+	var new_btn: Button = _make_ghost_btn("Novi set", "refresh")
 	new_btn.pressed.connect(_on_new_set)
 	row.add_child(new_btn)
 	new_btn.theme_type_variation = "GhostButton"
 
-	var next_btn: Button = _make_ghost_btn("Sljedeći >")
+	var next_btn: Button = _make_ghost_btn("Sljedeći", "next")
 	next_btn.pressed.connect(func() -> void: _navigate_puzzle(1))
 	row.add_child(next_btn)
 	next_btn.theme_type_variation = "GhostButton"
@@ -505,8 +535,8 @@ func _load_puzzle(index: int) -> void:
 	_update_hint_btn()
 
 	var prefix: String = "Dnevni  " if _is_daily else "Slagalica "
-	_puzzle_counter.text = "%s%d/%d  %s" % [
-		prefix, index + 1, _puzzles.size(), _difficulty_badge(_puzzles[index])]
+	_puzzle_counter.text = "%s%d/%d" % [prefix, index + 1, _puzzles.size()]
+	_puzzle_stars.text   = "  " + _difficulty_badge(_puzzles[index])
 	_update_session_label()
 	_rebuild_grid()
 
@@ -515,11 +545,12 @@ func _difficulty_badge(puzzle: PuzzleData.Puzzle) -> String:
 	for cat in puzzle.categories:
 		total += cat.rank
 	var avg: float = total / 4.0
+	var s := _icon("star")
 	if avg < 1.5:
-		return "[*]"
+		return s
 	elif avg < 2.5:
-		return "[**]"
-	return "[***]"
+		return s + s
+	return s + s + s
 
 func _rebuild_grid() -> void:
 	for child in _grid.get_children():
@@ -576,21 +607,66 @@ func _make_tile(word: String) -> Button:
 
 	return btn
 
-func _make_ghost_btn(label: String) -> Button:
+func _icon_font() -> FontFile:
+	return load(ICON_FONT_PATH) as FontFile
+
+func _make_icon_lbl(icon_name: String, size: int = 20) -> Label:
+	var lbl := Label.new()
+	lbl.text = _icon(icon_name)
+	lbl.add_theme_font_override("font", _icon_font())
+	lbl.add_theme_font_size_override("font_size", size)
+	lbl.vertical_alignment = VERTICAL_ALIGNMENT_CENTER
+	lbl.mouse_filter = Control.MOUSE_FILTER_IGNORE
+	return lbl
+
+func _make_ghost_btn(label: String, icon_name: String = "") -> Button:
 	var btn: Button = Button.new()
-	btn.text = label
 	btn.custom_minimum_size = Vector2(118, 46)
+	if icon_name.is_empty():
+		btn.text = label
+	else:
+		btn.text = ""
+		var hbox := HBoxContainer.new()
+		hbox.alignment = BoxContainer.ALIGNMENT_CENTER
+		hbox.add_theme_constant_override("separation", 6)
+		hbox.mouse_filter = Control.MOUSE_FILTER_IGNORE
+		hbox.set_anchors_and_offsets_preset(Control.PRESET_FULL_RECT)
+		var ico := _make_icon_lbl(icon_name, 18)
+		var txt := Label.new()
+		txt.text = label
+		txt.vertical_alignment = VERTICAL_ALIGNMENT_CENTER
+		txt.mouse_filter = Control.MOUSE_FILTER_IGNORE
+		hbox.add_child(ico)
+		hbox.add_child(txt)
+		btn.add_child(hbox)
 	return btn
 
 func _make_hint_btn() -> Button:
 	var btn: Button = Button.new()
-	btn.text = "Hint  (%d)" % GameState.MAX_HINTS
 	btn.custom_minimum_size = Vector2(138, 46)
+	btn.text = ""
+	var hbox := HBoxContainer.new()
+	hbox.alignment = BoxContainer.ALIGNMENT_CENTER
+	hbox.add_theme_constant_override("separation", 6)
+	hbox.mouse_filter = Control.MOUSE_FILTER_IGNORE
+	hbox.set_anchors_and_offsets_preset(Control.PRESET_FULL_RECT)
+	var ico := _make_icon_lbl("lightbulb", 18)
+	var txt := Label.new()
+	txt.text = "Hint  (%d)" % GameState.MAX_HINTS
+	txt.vertical_alignment = VERTICAL_ALIGNMENT_CENTER
+	txt.mouse_filter = Control.MOUSE_FILTER_IGNORE
+	hbox.add_child(ico)
+	hbox.add_child(txt)
+	btn.add_child(hbox)
 	return btn
 
 func _update_hint_btn() -> void:
 	var left: int = _state.hints_remaining
-	_hint_btn.text = "Hint  (%d)" % left
+	var hbox := _hint_btn.get_child(0) as HBoxContainer
+	if hbox:
+		var txt := hbox.get_child(1) as Label
+		if txt:
+			txt.text = "Hint  (%d)" % left
 	_hint_btn.disabled = not _state.can_use_hint()
 
 func _make_submit_btn() -> Button:
@@ -660,11 +736,11 @@ func _make_font(weight: int) -> FontVariation:
 
 # ── Feedback helpers ───────────────────────────────────────────────────────
 const _FEEDBACK_CFG := {
-	FeedbackType.CORRECT:  { "icon": "OK", "bg": Color(0.14, 0.26, 0.20), "accent": Color(0.30, 0.85, 0.55), "text": Color(0.75, 0.97, 0.82) },
-	FeedbackType.WRONG:    { "icon": "X",  "bg": Color(0.26, 0.13, 0.14), "accent": Color(0.90, 0.35, 0.35), "text": Color(0.97, 0.72, 0.72) },
-	FeedbackType.ONE_AWAY: { "icon": "~",  "bg": Color(0.26, 0.22, 0.10), "accent": Color(0.95, 0.65, 0.20), "text": Color(0.99, 0.88, 0.62) },
-	FeedbackType.HINT:     { "icon": "!",  "bg": Color(0.18, 0.20, 0.10), "accent": Color(0.95, 0.78, 0.25), "text": Color(0.99, 0.93, 0.70) },
-	FeedbackType.END:      { "icon": "*",  "bg": Color(0.10, 0.17, 0.26), "accent": Color(0.45, 0.55, 1.00), "text": Color(0.80, 0.88, 1.00) },
+	FeedbackType.CORRECT:  { "icon": "done",      "bg": Color(0.14, 0.26, 0.20), "accent": Color(0.30, 0.85, 0.55), "text": Color(0.75, 0.97, 0.82) },
+	FeedbackType.WRONG:    { "icon": "cancel",    "bg": Color(0.26, 0.13, 0.14), "accent": Color(0.90, 0.35, 0.35), "text": Color(0.97, 0.72, 0.72) },
+	FeedbackType.ONE_AWAY: { "icon": "close",     "bg": Color(0.26, 0.22, 0.10), "accent": Color(0.95, 0.65, 0.20), "text": Color(0.99, 0.88, 0.62) },
+	FeedbackType.HINT:     { "icon": "lightbulb", "bg": Color(0.18, 0.20, 0.10), "accent": Color(0.95, 0.78, 0.25), "text": Color(0.99, 0.93, 0.70) },
+	FeedbackType.END:      { "icon": "star",      "bg": Color(0.10, 0.17, 0.26), "accent": Color(0.45, 0.55, 1.00), "text": Color(0.80, 0.88, 1.00) },
 }
 
 func _show_typed_feedback(type: FeedbackType, msg: String, persistent: bool = false) -> void:
@@ -679,7 +755,7 @@ func _show_typed_feedback(type: FeedbackType, msg: String, persistent: bool = fa
 	_feedback_panel.add_theme_stylebox_override("panel", bg_style)
 
 	_feedback_accent.color = cfg["accent"]
-	_feedback_icon.text    = cfg["icon"]
+	_feedback_icon.text    = _icon(cfg["icon"])
 	_feedback_icon.add_theme_color_override("font_color", cfg["accent"])
 	_feedback_label.text   = msg
 	_feedback_label.add_theme_color_override("font_color", cfg["text"])
@@ -1086,7 +1162,7 @@ func _show_summary(won: bool) -> void:
 
 	# "Next puzzle" only if not already complete and there is a next (#2)
 	if _current_puzzle_index < _puzzles.size() - 1:
-		var next_btn: Button = _make_ghost_btn("Sljedeća >")
+		var next_btn: Button = _make_ghost_btn("Sljedeća", "next")
 		next_btn.theme_type_variation = "GhostButton"
 		next_btn.pressed.connect(func() -> void:
 			_close_overlay()
