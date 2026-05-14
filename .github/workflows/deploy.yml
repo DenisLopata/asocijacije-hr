@@ -45,21 +45,12 @@ jobs:
       - name: Inject Firebase SDK into exported HTML
         run: |
           cp web/firebase_init.js export/web/firebase_init.js
-          python3 - <<'EOF'
-import re
-with open("export/web/index.html", "r") as f:
-    html = f.read()
-inject = (
-    '<script src="https://www.gstatic.com/firebasejs/9.23.0/firebase-app-compat.js"></script>\n'
-    '<script src="https://www.gstatic.com/firebasejs/9.23.0/firebase-auth-compat.js"></script>\n'
-    '<script src="https://www.gstatic.com/firebasejs/9.23.0/firebase-firestore-compat.js"></script>\n'
-    '<script src="firebase_init.js"></script>\n'
-)
-html = html.replace("</head>", inject + "</head>", 1)
-with open("export/web/index.html", "w") as f:
-    f.write(html)
-print("Firebase SDK injected into index.html")
-EOF
+          python3 -c "
+          html = open('export/web/index.html').read()
+          inject = '<script src=\"https://www.gstatic.com/firebasejs/9.23.0/firebase-app-compat.js\"></script>\n<script src=\"https://www.gstatic.com/firebasejs/9.23.0/firebase-auth-compat.js\"></script>\n<script src=\"https://www.gstatic.com/firebasejs/9.23.0/firebase-firestore-compat.js\"></script>\n<script src=\"firebase_init.js\"></script>\n'
+          open('export/web/index.html', 'w').write(html.replace('</head>', inject + '</head>', 1))
+          print('Firebase SDK injected')
+          "
 
       - name: Deploy to Firebase
         run: |
