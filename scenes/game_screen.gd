@@ -1265,9 +1265,9 @@ func _show_name_picker() -> void:
 			btn.add_theme_font_size_override("font_size", 15)
 			btn.add_theme_font_override("font", _make_font(500))
 
-			var is_fn   := ch == "DEL" or ch == "OK"
-			var is_num  := ch.is_valid_int()
-			var is_spc  := ch == " "
+			var is_fn:  bool = ch == "DEL" or ch == "OK"
+			var is_num: bool = ch.is_valid_int()
+			var is_spc: bool = ch == " "
 
 			# Key height is uniform; width expands to fill row
 			btn.custom_minimum_size = Vector2(0, 46)
