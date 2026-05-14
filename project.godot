@@ -21,6 +21,14 @@ run/main_scene="res://scenes/main_menu.tscn"
 config/features=PackedStringArray("4.6", "Forward Plus")
 config/icon="res://icon.svg"
 
+[boot_splash]
+
+image="res://assets/boot_splash.png"
+bg_color=Color(0.110, 0.110, 0.129, 1)
+fullsize=true
+use_filter=true
+minimum_display_time=1000
+
 [configuration]
 
 config_version=5
