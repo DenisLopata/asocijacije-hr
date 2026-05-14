@@ -52,9 +52,9 @@ const FONT_PATH := "res://assets/fonts/Outfit-VariableFont_wght.ttf"
 
 const SPARKLE_INTENSITY: Dictionary = {
 	PuzzleData.Difficulty.YELLOW: 0.0,
-	PuzzleData.Difficulty.GREEN:  0.08,
-	PuzzleData.Difficulty.BLUE:   0.18,
-	PuzzleData.Difficulty.PURPLE: 0.35,
+	PuzzleData.Difficulty.GREEN:  0.04,
+	PuzzleData.Difficulty.BLUE:   0.08,
+	PuzzleData.Difficulty.PURPLE: 0.14,
 }
 
 const SHIMMER_SHADER := "
@@ -66,14 +66,14 @@ uniform float sparkle_intensity = 0.0;
 void fragment() {
 	float age = TIME - spawn_time;
 
-	// One-shot diagonal sweep (first 1.6s)
+	// One-shot diagonal sweep (first 1.0s)
 	float diag       = UV.x * 0.65 + UV.y * 0.35;
-	float sweep_dist = diag - age / 1.6;
-	float sweep      = exp(-sweep_dist * sweep_dist * 18.0)
-	                 * smoothstep(1.6, 0.6, age) * 0.38;
+	float sweep_dist = diag - age / 1.0;
+	float sweep      = exp(-sweep_dist * sweep_dist * 28.0)
+	                 * smoothstep(1.0, 0.3, age) * 0.18;
 
 	// Slow breathing (permanent)
-	float glow = (sin(TIME * 0.7 + 1.2) * 0.5 + 0.5) * 0.055;
+	float glow = (sin(TIME * 0.7 + 1.2) * 0.5 + 0.5) * 0.022;
 
 	// Star twinkles — tight gaussian + fast sharp flicker
 	float sparks = 0.0;

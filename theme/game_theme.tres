@@ -254,8 +254,8 @@ ScoreLabel/font_sizes/font_size = 14
 FeedbackLabel/colors/font_color    = Color(0.96, 0.96, 0.98, 1)
 FeedbackLabel/font_sizes/font_size = 16
 
-SolvedCategoryLabel/colors/font_color    = Color(0.0, 0.0, 0.0, 0.65)
-SolvedCategoryLabel/font_sizes/font_size = 14
+SolvedCategoryLabel/colors/font_color    = Color(0.0, 0.0, 0.0, 0.85)
+SolvedCategoryLabel/font_sizes/font_size = 18
 
-SolvedWordsLabel/colors/font_color    = Color(0.05, 0.05, 0.08, 1)
-SolvedWordsLabel/font_sizes/font_size = 18
+SolvedWordsLabel/colors/font_color    = Color(0.05, 0.05, 0.08, 0.75)
+SolvedWordsLabel/font_sizes/font_size = 14
