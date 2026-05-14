@@ -438,7 +438,7 @@ func _build_action_buttons(parent: VBoxContainer) -> void:
 	parent.add_child(row)
 
 	_shuffle_btn  = _make_ghost_btn("Pomiješaj", "shuffle")
-	_deselect_btn = _make_ghost_btn("Poništi odabir", "undo")
+	_deselect_btn = _make_ghost_btn("Poništi", "undo")
 	_submit_btn   = _make_submit_btn()
 	_hint_btn     = _make_hint_btn()
 
