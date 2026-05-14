@@ -487,8 +487,9 @@ func _load_puzzle(index: int) -> void:
 	# Stagger-in animation for mistake dots (#13)
 	for i in GameState.MAX_MISTAKES:
 		var dot: Panel = _mistake_dots[i]
-		dot.modulate = Color(1, 1, 1, 0)
-		dot.scale    = Vector2(0.6, 0.6)
+		dot.modulate     = Color(1, 1, 1, 0)
+		dot.scale        = Vector2(0.6, 0.6)
+		dot.pivot_offset = dot.size / 2.0
 		_set_dot_active(dot, true)
 		var dt: Tween = create_tween().set_parallel(true)
 		dt.tween_property(dot, "modulate", Color.WHITE, 0.25) \
@@ -562,11 +563,13 @@ func _make_tile(word: String) -> Button:
 	# Micro-bounce on press (#19)
 	btn.button_down.connect(func() -> void:
 		if is_instance_valid(btn):
+			btn.pivot_offset = btn.size / 2.0
 			var t := create_tween()
 			t.tween_property(btn, "scale", Vector2(0.94, 0.94), ANIM_PRESS_DIP) \
 				.set_trans(Tween.TRANS_SINE))
 	btn.button_up.connect(func() -> void:
 		if is_instance_valid(btn):
+			btn.pivot_offset = btn.size / 2.0
 			var t := create_tween()
 			t.tween_property(btn, "scale", Vector2.ONE, ANIM_PRESS_RISE) \
 				.set_trans(Tween.TRANS_BACK).set_ease(Tween.EASE_OUT))
@@ -769,6 +772,7 @@ func _on_guess_correct(category: PuzzleData.Category) -> void:
 	var sweep: Tween = create_tween().set_parallel(true)
 	for btn in solved_btns:
 		if is_instance_valid(btn):
+			btn.pivot_offset = btn.size / 2.0
 			btn.add_theme_stylebox_override("normal", sweep_style)
 		sweep.tween_property(btn, "scale", Vector2(1.06, 1.06), ANIM_SWEEP) \
 			.set_trans(Tween.TRANS_BACK).set_ease(Tween.EASE_OUT)
@@ -807,6 +811,7 @@ func _on_guess_wrong(words: Array[String], one_away: bool) -> void:  # (#5: use 
 	# Pop animation on the depleted dot
 	if used > 0 and used <= _mistake_dots.size():
 		var depleted: Panel = _mistake_dots[used - 1]
+		depleted.pivot_offset = depleted.size / 2.0
 		var pop: Tween = create_tween().set_parallel(true)
 		pop.tween_property(depleted, "scale", Vector2(1.5, 1.5), ANIM_DOT_POP) \
 			.set_trans(Tween.TRANS_BACK).set_ease(Tween.EASE_OUT)
@@ -948,8 +953,9 @@ func _reveal_all() -> void:
 func _add_solved_row_animated(category: PuzzleData.Category) -> void:
 	_add_solved_row(category)
 	var row: Control = _solved_container.get_child(_solved_container.get_child_count() - 1)
-	row.scale    = Vector2(0.85, 0.85)
-	row.modulate = Color(1, 1, 1, 0)
+	row.pivot_offset = row.size / 2.0
+	row.scale        = Vector2(0.85, 0.85)
+	row.modulate     = Color(1, 1, 1, 0)
 	var tween: Tween = create_tween().set_parallel(true)
 	tween.tween_property(row, "scale", Vector2.ONE, ANIM_SOLVED_ROW) \
 		.set_trans(Tween.TRANS_BACK).set_ease(Tween.EASE_OUT)
@@ -1233,8 +1239,9 @@ func _add_stat_row(parent: VBoxContainer, key: String, value: String) -> void:
 	row.add_child(v)
 
 func _animate_overlay_in(dim: Control, panel: Control) -> void:
-	panel.scale    = Vector2(0.88, 0.88)
-	panel.modulate = Color(1, 1, 1, 0)
+	panel.pivot_offset = panel.size / 2.0
+	panel.scale        = Vector2(0.88, 0.88)
+	panel.modulate     = Color(1, 1, 1, 0)
 	dim.modulate   = Color(1, 1, 1, 0)
 	var t: Tween = create_tween().set_parallel(true)
 	t.tween_property(dim,   "modulate",       Color.WHITE,    ANIM_OVERLAY_IN)

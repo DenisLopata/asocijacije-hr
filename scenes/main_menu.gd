@@ -172,8 +172,9 @@ func _build_buttons(parent: VBoxContainer) -> void:
 		parent.add_child(btn)
 		_build_spacer(parent, 14)
 		# Stagger-in: fade + scale only — no position tweak inside VBox (#layout-safe)
-		btn.modulate = Color(1, 1, 1, 0)
-		btn.scale    = Vector2(0.96, 0.96)
+		btn.modulate     = Color(1, 1, 1, 0)
+		btn.scale        = Vector2(0.96, 0.96)
+		btn.pivot_offset = btn.size / 2.0
 		var delay: float = i * ANIM_BTN_STAGGER + ANIM_FADE_IN
 		var t: Tween = create_tween().set_parallel(true)
 		t.tween_property(btn, "modulate", Color.WHITE, 0.28).set_delay(delay)
@@ -272,10 +273,12 @@ func _make_menu_btn(label: String, subtitle: String, style: String) -> Button:
 	# Micro-bounce
 	btn.button_down.connect(func() -> void:
 		if is_instance_valid(btn):
+			btn.pivot_offset = btn.size / 2.0
 			create_tween().tween_property(btn, "scale", Vector2(0.97, 0.97), ANIM_PRESS_DIP) \
 				.set_trans(Tween.TRANS_SINE))
 	btn.button_up.connect(func() -> void:
 		if is_instance_valid(btn):
+			btn.pivot_offset = btn.size / 2.0
 			create_tween().tween_property(btn, "scale", Vector2.ONE, ANIM_PRESS_RISE) \
 				.set_trans(Tween.TRANS_BACK).set_ease(Tween.EASE_OUT))
 
@@ -414,8 +417,9 @@ func _add_separator(parent: VBoxContainer) -> void:
 	parent.add_child(sep)
 
 func _animate_overlay_in(dim: Control, panel: Control) -> void:
-	panel.scale    = Vector2(0.88, 0.88)
-	panel.modulate = Color(1, 1, 1, 0)
+	panel.pivot_offset = panel.size / 2.0
+	panel.scale        = Vector2(0.88, 0.88)
+	panel.modulate     = Color(1, 1, 1, 0)
 	dim.modulate   = Color(1, 1, 1, 0)
 	var t: Tween = create_tween().set_parallel(true)
 	t.tween_property(dim,   "modulate", Color.WHITE, ANIM_OVERLAY_IN)
