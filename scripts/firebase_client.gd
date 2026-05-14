@@ -135,6 +135,7 @@ func submit_score(player_name: String, score: int, time_sec: float,
 			push_warning("FirebaseClient: submit_score failed — %s" % _last_error)
 			return false
 		_uid = r[1]  # JS returns uid on success
+		_cache.erase(mode + "_" + date_str)
 		mark_submitted(mode, date_str)
 		return true
 
@@ -164,6 +165,7 @@ func submit_score(player_name: String, score: int, time_sec: float,
 		_last_error = "network_error"
 		push_warning("FirebaseClient: submit_score failed after retry")
 		return false
+	_cache.erase(mode + "_" + date_str)
 	mark_submitted(mode, date_str)
 	return true
 
