@@ -42,6 +42,25 @@ jobs:
           cp assets/boot_splash.png export/web/index.png
           sed -i 's/background-color: #242424/background-color: #1c1c21/' export/web/index.html
 
+      - name: Inject Firebase SDK into exported HTML
+        run: |
+          cp web/firebase_init.js export/web/firebase_init.js
+          python3 - <<'EOF'
+import re
+with open("export/web/index.html", "r") as f:
+    html = f.read()
+inject = (
+    '<script src="https://www.gstatic.com/firebasejs/9.23.0/firebase-app-compat.js"></script>\n'
+    '<script src="https://www.gstatic.com/firebasejs/9.23.0/firebase-auth-compat.js"></script>\n'
+    '<script src="https://www.gstatic.com/firebasejs/9.23.0/firebase-firestore-compat.js"></script>\n'
+    '<script src="firebase_init.js"></script>\n'
+)
+html = html.replace("</head>", inject + "</head>", 1)
+with open("export/web/index.html", "w") as f:
+    f.write(html)
+print("Firebase SDK injected into index.html")
+EOF
+
       - name: Deploy to Firebase
         run: |
           npm install -g firebase-tools@13
