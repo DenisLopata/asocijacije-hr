@@ -224,13 +224,6 @@ func _build_buttons(parent: VBoxContainer) -> void:
 	var daily_seed  : int    = today["daily_seed"]
 	var five_seed   : int    = today["five_seed"]
 
-	btns.append({
-		"label":  "Nova igra",
-		"sub":    "",
-		"style":  "primary",
-		"action": func() -> void: _go_to_game(true),
-	})
-
 	var daily_result := SaveManager.load_daily_result(date_str)
 	var streak: int = SaveManager.load_streak("daily")
 	if daily_result.size() > 0:
@@ -271,6 +264,14 @@ func _build_buttons(parent: VBoxContainer) -> void:
 			"style":  "five",
 			"action": func() -> void: _go_to_five(five_seed, true),
 		})
+
+	btns.append({
+		"label":    "Beskraj",
+		"sub":      "Dolazi uskoro",
+		"style":    "primary",
+		"action":   func() -> void: pass,
+		"disabled": true,
+	})
 
 	btns.append({
 		"label":  "Postavke",
