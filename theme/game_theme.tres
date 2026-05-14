@@ -1,0 +1,261 @@
+[gd_resource type="Theme" load_steps=15 version=2]
+
+[ext_resource type="FontFile" path="res://assets/fonts/Nunito-VariableFont_wght.ttf" id="Font_Nunito"]
+
+[sub_resource type="StyleBoxFlat" id="SBF_TN"]
+bg_color = Color(0.17, 0.19, 0.25, 1)
+corner_radius_top_left = 14
+corner_radius_top_right = 14
+corner_radius_bottom_left = 14
+corner_radius_bottom_right = 14
+content_margin_left = 8.0
+content_margin_right = 8.0
+content_margin_top = 4.0
+content_margin_bottom = 4.0
+
+[sub_resource type="StyleBoxFlat" id="SBF_TH"]
+bg_color = Color(0.28, 0.32, 0.44, 1)
+border_width_left = 2
+border_width_top = 2
+border_width_right = 2
+border_width_bottom = 2
+border_color = Color(0.55, 0.65, 0.90, 0.7)
+corner_radius_top_left = 14
+corner_radius_top_right = 14
+corner_radius_bottom_left = 14
+corner_radius_bottom_right = 14
+content_margin_left = 8.0
+content_margin_right = 8.0
+content_margin_top = 4.0
+content_margin_bottom = 4.0
+
+[sub_resource type="StyleBoxFlat" id="SBF_TS"]
+bg_color = Color(0.22, 0.24, 0.38, 1)
+border_width_left = 3
+border_width_top = 3
+border_width_right = 3
+border_width_bottom = 3
+border_color = Color(0.55, 0.75, 1.0, 1)
+corner_radius_top_left = 14
+corner_radius_top_right = 14
+corner_radius_bottom_left = 14
+corner_radius_bottom_right = 14
+content_margin_left = 8.0
+content_margin_right = 8.0
+content_margin_top = 4.0
+content_margin_bottom = 4.0
+
+[sub_resource type="StyleBoxFlat" id="SBF_TP"]
+bg_color = Color(0.18, 0.20, 0.30, 1)
+border_width_left = 3
+border_width_top = 3
+border_width_right = 3
+border_width_bottom = 3
+border_color = Color(0.45, 0.65, 1.0, 1)
+corner_radius_top_left = 14
+corner_radius_top_right = 14
+corner_radius_bottom_left = 14
+corner_radius_bottom_right = 14
+content_margin_left = 8.0
+content_margin_right = 8.0
+content_margin_top = 4.0
+content_margin_bottom = 4.0
+
+[sub_resource type="StyleBoxFlat" id="SBF_GN"]
+bg_color = Color(0.22, 0.23, 0.30, 1)
+border_width_left = 1
+border_width_top = 1
+border_width_right = 1
+border_width_bottom = 1
+border_color = Color(0.35, 0.36, 0.50, 1)
+corner_radius_top_left = 22
+corner_radius_top_right = 22
+corner_radius_bottom_left = 22
+corner_radius_bottom_right = 22
+content_margin_left = 8.0
+content_margin_right = 8.0
+content_margin_top = 4.0
+content_margin_bottom = 4.0
+
+[sub_resource type="StyleBoxFlat" id="SBF_GH"]
+bg_color = Color(0.30, 0.33, 0.46, 1)
+border_width_left = 2
+border_width_top = 2
+border_width_right = 2
+border_width_bottom = 2
+border_color = Color(0.55, 0.65, 1.0, 1)
+corner_radius_top_left = 22
+corner_radius_top_right = 22
+corner_radius_bottom_left = 22
+corner_radius_bottom_right = 22
+content_margin_left = 8.0
+content_margin_right = 8.0
+content_margin_top = 4.0
+content_margin_bottom = 4.0
+
+[sub_resource type="StyleBoxFlat" id="SBF_GP"]
+bg_color = Color(0.18, 0.19, 0.26, 1)
+border_width_left = 2
+border_width_top = 2
+border_width_right = 2
+border_width_bottom = 2
+border_color = Color(0.45, 0.55, 1.0, 1)
+corner_radius_top_left = 22
+corner_radius_top_right = 22
+corner_radius_bottom_left = 22
+corner_radius_bottom_right = 22
+content_margin_left = 8.0
+content_margin_right = 8.0
+content_margin_top = 4.0
+content_margin_bottom = 4.0
+
+[sub_resource type="StyleBoxFlat" id="SBF_DIS"]
+bg_color = Color(0.15, 0.16, 0.20, 1)
+border_width_left = 1
+border_width_top = 1
+border_width_right = 1
+border_width_bottom = 1
+border_color = Color(0.22, 0.23, 0.28, 1)
+corner_radius_top_left = 22
+corner_radius_top_right = 22
+corner_radius_bottom_left = 22
+corner_radius_bottom_right = 22
+content_margin_left = 8.0
+content_margin_right = 8.0
+content_margin_top = 4.0
+content_margin_bottom = 4.0
+
+[sub_resource type="StyleBoxFlat" id="SBF_HN"]
+bg_color = Color(0.28, 0.22, 0.10, 1)
+border_width_left = 1
+border_width_top = 1
+border_width_right = 1
+border_width_bottom = 1
+border_color = Color(0.80, 0.60, 0.15, 1)
+corner_radius_top_left = 22
+corner_radius_top_right = 22
+corner_radius_bottom_left = 22
+corner_radius_bottom_right = 22
+content_margin_left = 8.0
+content_margin_right = 8.0
+content_margin_top = 4.0
+content_margin_bottom = 4.0
+
+[sub_resource type="StyleBoxFlat" id="SBF_HH"]
+bg_color = Color(0.42, 0.32, 0.10, 1)
+border_width_left = 2
+border_width_top = 2
+border_width_right = 2
+border_width_bottom = 2
+border_color = Color(1.0, 0.82, 0.22, 1)
+corner_radius_top_left = 22
+corner_radius_top_right = 22
+corner_radius_bottom_left = 22
+corner_radius_bottom_right = 22
+content_margin_left = 8.0
+content_margin_right = 8.0
+content_margin_top = 4.0
+content_margin_bottom = 4.0
+
+[sub_resource type="StyleBoxFlat" id="SBF_HP"]
+bg_color = Color(0.22, 0.17, 0.07, 1)
+border_width_left = 2
+border_width_top = 2
+border_width_right = 2
+border_width_bottom = 2
+border_color = Color(0.90, 0.70, 0.15, 1)
+corner_radius_top_left = 22
+corner_radius_top_right = 22
+corner_radius_bottom_left = 22
+corner_radius_bottom_right = 22
+content_margin_left = 8.0
+content_margin_right = 8.0
+content_margin_top = 4.0
+content_margin_bottom = 4.0
+
+[sub_resource type="StyleBoxFlat" id="SBF_FP"]
+bg_color = Color(0.18, 0.19, 0.26, 1)
+corner_radius_top_left = 10
+corner_radius_top_right = 10
+corner_radius_bottom_left = 10
+corner_radius_bottom_right = 10
+content_margin_left = 8.0
+content_margin_right = 8.0
+content_margin_top = 4.0
+content_margin_bottom = 4.0
+
+[sub_resource type="StyleBoxEmpty" id="SBF_EMPTY"]
+
+[resource]
+default_font = ExtResource("Font_Nunito")
+default_font_size = 15
+
+type_variation/TileButton = &"Button"
+type_variation/GhostButton = &"Button"
+type_variation/HintButton = &"Button"
+type_variation/FeedbackPanel = &"PanelContainer"
+type_variation/TitleLabel = &"Label"
+type_variation/SubtitleLabel = &"Label"
+type_variation/MetaLabel = &"Label"
+type_variation/ScoreLabel = &"Label"
+type_variation/FeedbackLabel = &"Label"
+type_variation/SolvedCategoryLabel = &"Label"
+type_variation/SolvedWordsLabel = &"Label"
+
+TileButton/colors/font_color         = Color(0.96, 0.96, 0.98, 1)
+TileButton/colors/font_hover_color   = Color(1.0, 1.0, 1.0, 1)
+TileButton/colors/font_pressed_color = Color(0.85, 0.90, 1.0, 1)
+TileButton/colors/font_focus_color   = Color(0.96, 0.96, 0.98, 1)
+TileButton/font_sizes/font_size      = 17
+TileButton/styles/normal             = SubResource("SBF_TN")
+TileButton/styles/hover              = SubResource("SBF_TH")
+TileButton/styles/pressed            = SubResource("SBF_TP")
+TileButton/styles/focus              = SubResource("SBF_EMPTY")
+TileButton/styles/disabled           = SubResource("SBF_TN")
+
+GhostButton/colors/font_color          = Color(0.85, 0.87, 0.95, 1)
+GhostButton/colors/font_hover_color    = Color(1.0, 1.0, 1.0, 1)
+GhostButton/colors/font_pressed_color  = Color(0.80, 0.85, 1.0, 1)
+GhostButton/colors/font_focus_color    = Color(0.85, 0.87, 0.95, 1)
+GhostButton/colors/font_disabled_color = Color(0.38, 0.38, 0.43, 1)
+GhostButton/font_sizes/font_size       = 15
+GhostButton/styles/normal              = SubResource("SBF_GN")
+GhostButton/styles/hover               = SubResource("SBF_GH")
+GhostButton/styles/pressed             = SubResource("SBF_GP")
+GhostButton/styles/focus               = SubResource("SBF_EMPTY")
+GhostButton/styles/disabled            = SubResource("SBF_DIS")
+
+HintButton/colors/font_color          = Color(1.0, 0.85, 0.30, 1)
+HintButton/colors/font_hover_color    = Color(1.0, 0.96, 0.55, 1)
+HintButton/colors/font_pressed_color  = Color(0.90, 0.75, 0.20, 1)
+HintButton/colors/font_focus_color    = Color(1.0, 0.85, 0.30, 1)
+HintButton/colors/font_disabled_color = Color(0.38, 0.38, 0.43, 1)
+HintButton/font_sizes/font_size       = 15
+HintButton/styles/normal              = SubResource("SBF_HN")
+HintButton/styles/hover               = SubResource("SBF_HH")
+HintButton/styles/pressed             = SubResource("SBF_HP")
+HintButton/styles/focus               = SubResource("SBF_EMPTY")
+HintButton/styles/disabled            = SubResource("SBF_DIS")
+
+FeedbackPanel/styles/panel = SubResource("SBF_FP")
+
+TitleLabel/colors/font_color   = Color(0.96, 0.96, 0.98, 1)
+TitleLabel/font_sizes/font_size = 38
+
+SubtitleLabel/colors/font_color    = Color(0.55, 0.56, 0.62, 1)
+SubtitleLabel/font_sizes/font_size = 14
+
+MetaLabel/colors/font_color    = Color(0.55, 0.56, 0.62, 1)
+MetaLabel/font_sizes/font_size = 13
+
+ScoreLabel/colors/font_color    = Color(0.45, 0.55, 1.0, 1)
+ScoreLabel/font_sizes/font_size = 13
+
+FeedbackLabel/colors/font_color    = Color(0.96, 0.96, 0.98, 1)
+FeedbackLabel/font_sizes/font_size = 15
+
+SolvedCategoryLabel/colors/font_color    = Color(0.0, 0.0, 0.0, 0.65)
+SolvedCategoryLabel/font_sizes/font_size = 12
+
+SolvedWordsLabel/colors/font_color    = Color(0.05, 0.05, 0.08, 1)
+SolvedWordsLabel/font_sizes/font_size = 17

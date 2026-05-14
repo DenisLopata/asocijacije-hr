@@ -1,0 +1,15 @@
+# Godot-generated files
+.godot/
+
+# Export artifacts
+export/
+*.pck
+*.apk
+*.aab
+*.exe
+*.x86_64
+*.dmg
+
+# OS junk
+.DS_Store
+Thumbs.db
