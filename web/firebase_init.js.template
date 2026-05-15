@@ -1,5 +1,83 @@
-firebase.initializeApp({
-  apiKey: "YOUR_FIREBASE_API_KEY",
-  authDomain: "asocijacije-hr.firebaseapp.com",
-  projectId: "asocijacije-hr"
-});
+(function () {
+  var _ready = false;
+  var _fbAuth, _fbDb;
+
+  try {
+    firebase.initializeApp({
+      apiKey: "YOUR_FIREBASE_API_KEY",
+      authDomain: "asocijacije-hr.firebaseapp.com",
+      projectId: "asocijacije-hr"
+    });
+    _fbAuth = firebase.auth();
+    _fbDb   = firebase.firestore();
+    _fbAuth.setPersistence(firebase.auth.Auth.Persistence.LOCAL);
+    _ready = true;
+  } catch (e) {
+    console.error("Firebase init failed:", e);
+  }
+
+  // callback signature: callback(ok_int, result_string)  ok=1 success, ok=0 failure
+
+  function _fbEnsureAuth(cb) {
+    if (!_ready) { cb(null); return; }
+    if (_fbAuth.currentUser) { cb(_fbAuth.currentUser); return; }
+    _fbAuth.signInAnonymously()
+      .then(function (r) { cb(r.user); })
+      .catch(function (e) { console.error("Firebase auth error:", e); cb(null); });
+  }
+
+  window._fb_submit = function (name, score, time, mode, date_str, seed, callback) {
+    if (!_ready) { callback(0, "firebase_unavailable"); return; }
+    _fbEnsureAuth(function (user) {
+      if (!user) { callback(0, "auth_failed"); return; }
+      _fbDb.collection("leaderboard").add({
+        name: name, score: score, time: time,
+        mode: mode, date: date_str, uid: user.uid, seed: seed
+      }).then(function () {
+        callback(1, user.uid);
+      }).catch(function (e) {
+        console.error("_fb_submit error:", e);
+        callback(0, String(e));
+      });
+    });
+  };
+
+  window._fb_fetch_leaderboard = function (mode, date_str, limit, callback) {
+    if (!_ready) { callback(0, "[]"); return; }
+    _fbDb.collection("leaderboard")
+      .where("mode", "==", mode)
+      .where("date", "==", date_str)
+      .orderBy("score", "desc")
+      .orderBy("time", "asc")
+      .limit(limit)
+      .get()
+      .then(function (snap) {
+        var arr = [];
+        snap.forEach(function (d) { arr.push(d.data()); });
+        callback(1, JSON.stringify(arr));
+      }).catch(function (e) {
+        console.error("_fb_fetch_leaderboard error:", e);
+        callback(0, "[]");
+      });
+  };
+
+  window._fb_fetch_rank = function (mode, date_str, score, callback) {
+    if (!_ready) { callback(0, "-1"); return; }
+    _fbDb.collection("leaderboard")
+      .where("mode", "==", mode)
+      .where("date", "==", date_str)
+      .where("score", ">", score)
+      .get()
+      .then(function (snap) {
+        callback(1, String(snap.size + 1));
+      }).catch(function (e) {
+        console.error("_fb_fetch_rank error:", e);
+        callback(0, "-1");
+      });
+  };
+
+  window._fb_get_uid = function () {
+    if (!_ready || !_fbAuth.currentUser) return "";
+    return _fbAuth.currentUser.uid;
+  };
+}());
