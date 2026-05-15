@@ -18,8 +18,9 @@ const ANIM_PRESS_RISE   := 0.13
 const ANIM_SCORE           := 0.45
 const ANIM_FADE_OUT        := 0.35
 const ANIM_FEEDBACK_SLIDE  := 0.28
-const FEEDBACK_AUTO_HIDE   := 3.5
-const FEEDBACK_ONE_AWAY_HIDE := 4.5
+const FEEDBACK_AUTO_HIDE     := 10.0
+const FEEDBACK_ONE_AWAY_HIDE := 10.0
+const FEEDBACK_MAX_SLOTS     := 2
 
 enum FeedbackType { CORRECT, WRONG, ONE_AWAY, HINT, END }
 
@@ -41,9 +42,9 @@ const C_WIN         := Color(0.30, 0.85, 0.55)
 const C_LOSE        := Color(0.90, 0.35, 0.35)
 const C_ONE_AWAY    := Color(0.95, 0.65, 0.20)
 
-const TILE_H      : int = 84
-const TILE_FONT   : int = 18
-const BTN_FONT    : int = 16
+const TILE_H      : int = 96
+const TILE_FONT   : int = 22
+const BTN_FONT    : int = 18
 const RADIUS_TILE : int = 14
 const RADIUS_BTN  : int = 22
 const BORDER_SEL  : int = 3
@@ -169,11 +170,13 @@ var _deselect_btn: Button
 var _shuffle_btn: Button
 var _hint_btn: Button
 var _solved_container: VBoxContainer
-var _feedback_panel: PanelContainer
-var _feedback_icon: Label
-var _feedback_label: Label
-var _feedback_accent: ColorRect
-var _puzzle_counter: Label
+var _feedback_container: VBoxContainer
+var _active_feedbacks: Array[Control] = []
+var _mistakes_row_node: Control
+var _action_row_node: Control
+var _summary_container: VBoxContainer
+var _timer_label: Label
+var _timer_running: bool = false
 var _puzzle_stars: Label
 var _session_label: Label
 var _tile_buttons: Dictionary = {}
@@ -188,8 +191,6 @@ var _overlay: Control = null
 var _overlay_tag: String = ""
 var _fade_rect: ColorRect
 
-var _feedback_gen: int = 0
-var _feedback_locked: bool = false
 
 # ── Boot ───────────────────────────────────────────────────────────────────
 func _unhandled_input(event: InputEvent) -> void:
@@ -302,8 +303,8 @@ func _build_ui() -> void:
 	var margin: MarginContainer = MarginContainer.new()
 	margin.add_theme_constant_override("margin_left",   28)
 	margin.add_theme_constant_override("margin_right",  28)
-	margin.add_theme_constant_override("margin_top",    36)
-	margin.add_theme_constant_override("margin_bottom", 28)
+	margin.add_theme_constant_override("margin_top",    20)
+	margin.add_theme_constant_override("margin_bottom", 20)
 	margin.set_anchors_and_offsets_preset(Control.PRESET_FULL_RECT)
 	add_child(margin)
 
@@ -329,6 +330,16 @@ func _build_ui() -> void:
 	_build_grid_area(inner_vbox)
 	_build_feedback_area(inner_vbox)
 	_build_mistakes_row(inner_vbox)
+
+	var summary_margin: MarginContainer = MarginContainer.new()
+	summary_margin.add_theme_constant_override("margin_top",    16)
+	summary_margin.add_theme_constant_override("margin_bottom", 16)
+	summary_margin.visible = false
+	inner_vbox.add_child(summary_margin)
+
+	_summary_container = VBoxContainer.new()
+	_summary_container.add_theme_constant_override("separation", 14)
+	summary_margin.add_child(_summary_container)
 
 	_build_action_buttons(outer_vbox)
 	_build_nav_row(outer_vbox)
@@ -365,51 +376,21 @@ func _add_bg() -> void:
 	add_child(vignette)
 
 func _build_header(parent: VBoxContainer) -> void:
-	var title_row: HBoxContainer = HBoxContainer.new()
-	title_row.alignment = BoxContainer.ALIGNMENT_CENTER
-	parent.add_child(title_row)
-
-	var title: Label = Label.new()
-	title.text = "ASOCIJACIJE"
-	title.theme_type_variation = "TitleLabel"
-	title.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
-	title.size_flags_horizontal = Control.SIZE_EXPAND_FILL
-	title_row.add_child(title)
-
-	var settings_btn: Button = Button.new()
-	settings_btn.text = _icon("settings")
-	settings_btn.add_theme_font_override("font", _icon_font())
-	settings_btn.add_theme_font_size_override("font_size", 22)
-	settings_btn.custom_minimum_size = Vector2(44, 44)
-	settings_btn.theme_type_variation = "GhostButton"
-	settings_btn.pressed.connect(_on_settings)
-	title_row.add_child(settings_btn)
-
-	var accent_bar: ColorRect = ColorRect.new()
-	accent_bar.color = C_ACCENT
-	accent_bar.custom_minimum_size = Vector2(60, 3)
-	accent_bar.size_flags_horizontal = Control.SIZE_SHRINK_CENTER
-	parent.add_child(accent_bar)
-
-	var subtitle: Label = Label.new()
-	subtitle.text = "Grupirajte 16 pojmova u 4 kategorije"
-	subtitle.theme_type_variation = "SubtitleLabel"
-	subtitle.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
-	parent.add_child(subtitle)
-
 	var meta_row: HBoxContainer = HBoxContainer.new()
 	meta_row.alignment = BoxContainer.ALIGNMENT_CENTER
 	meta_row.add_theme_constant_override("separation", 24)
 	parent.add_child(meta_row)
 
-	_puzzle_counter = Label.new()
-	_puzzle_counter.theme_type_variation = "MetaLabel"
-	meta_row.add_child(_puzzle_counter)
+	_timer_label = Label.new()
+	_timer_label.theme_type_variation = "MetaLabel"
+	_timer_label.size_flags_horizontal = Control.SIZE_EXPAND_FILL
+	_timer_label.text = "0s"
+	meta_row.add_child(_timer_label)
 
 	_puzzle_stars = Label.new()
 	_puzzle_stars.theme_type_variation = "MetaLabel"
 	_puzzle_stars.add_theme_font_override("font", _icon_font())
-	_puzzle_stars.add_theme_font_size_override("font_size", 14)
+	_puzzle_stars.add_theme_font_size_override("font_size", 16)
 	meta_row.add_child(_puzzle_stars)
 
 	_score_label = Label.new()
@@ -421,6 +402,15 @@ func _build_header(parent: VBoxContainer) -> void:
 	_session_label.theme_type_variation = "MetaLabel"
 	_session_label.text = ""
 	meta_row.add_child(_session_label)
+
+	var settings_btn: Button = Button.new()
+	settings_btn.text = _icon("settings")
+	settings_btn.add_theme_font_override("font", _icon_font())
+	settings_btn.add_theme_font_size_override("font_size", 24)
+	settings_btn.custom_minimum_size = Vector2(44, 44)
+	settings_btn.theme_type_variation = "GhostButton"
+	settings_btn.pressed.connect(_on_settings)
+	meta_row.add_child(settings_btn)
 
 func _build_solved_area(parent: VBoxContainer) -> void:
 	_solved_container = VBoxContainer.new()
@@ -435,58 +425,16 @@ func _build_grid_area(parent: VBoxContainer) -> void:
 	parent.add_child(_grid)
 
 func _build_feedback_area(parent: VBoxContainer) -> void:
-	_feedback_panel = PanelContainer.new()
-	_feedback_panel.visible = false
-	_feedback_panel.mouse_filter = Control.MOUSE_FILTER_STOP
-	_feedback_panel.gui_input.connect(_on_feedback_tapped)
-	parent.add_child(_feedback_panel)
-
-	# Left accent bar — coloured strip indicating message type
-	_feedback_accent = ColorRect.new()
-	_feedback_accent.custom_minimum_size = Vector2(5, 0)
-	_feedback_accent.size_flags_vertical = Control.SIZE_EXPAND_FILL
-
-	# Icon column
-	_feedback_icon = Label.new()
-	_feedback_icon.vertical_alignment = VERTICAL_ALIGNMENT_CENTER
-	_feedback_icon.add_theme_font_override("font", _icon_font())
-	_feedback_icon.add_theme_font_size_override("font_size", 22)
-	_feedback_icon.custom_minimum_size = Vector2(40, 0)
-	_feedback_icon.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
-
-	# Message text — wraps for long hint messages
-	_feedback_label = Label.new()
-	_feedback_label.theme_type_variation = "FeedbackLabel"
-	_feedback_label.vertical_alignment = VERTICAL_ALIGNMENT_CENTER
-	_feedback_label.size_flags_horizontal = Control.SIZE_EXPAND_FILL
-	_feedback_label.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
-
-	# Inner HBox: accent | icon | text
-	var hbox: HBoxContainer = HBoxContainer.new()
-	hbox.add_theme_constant_override("separation", 0)
-	hbox.add_child(_feedback_accent)
-
-	var inner: HBoxContainer = HBoxContainer.new()
-	inner.add_theme_constant_override("separation", 10)
-	inner.size_flags_horizontal = Control.SIZE_EXPAND_FILL
-	# padding left/right inside the coloured area
-	var pad_l: Control = Control.new()
-	pad_l.custom_minimum_size = Vector2(12, 0)
-	var pad_r: Control = Control.new()
-	pad_r.custom_minimum_size = Vector2(12, 0)
-	inner.add_child(pad_l)
-	inner.add_child(_feedback_icon)
-	inner.add_child(_feedback_label)
-	inner.add_child(pad_r)
-
-	hbox.add_child(inner)
-	_feedback_panel.add_child(hbox)
+	_feedback_container = VBoxContainer.new()
+	_feedback_container.add_theme_constant_override("separation", 6)
+	parent.add_child(_feedback_container)
 
 func _build_mistakes_row(parent: VBoxContainer) -> void:
 	var row: HBoxContainer = HBoxContainer.new()
 	row.alignment = BoxContainer.ALIGNMENT_CENTER
 	row.add_theme_constant_override("separation", 12)
 	parent.add_child(row)
+	_mistakes_row_node = row
 
 	var lbl: Label = Label.new()
 	lbl.text = "Preostale greške:"
@@ -495,8 +443,8 @@ func _build_mistakes_row(parent: VBoxContainer) -> void:
 
 	for i in GameState.MAX_MISTAKES:
 		var dot: Panel = Panel.new()
-		dot.custom_minimum_size = Vector2(22, 22)
-		var style: StyleBoxFlat = _rounded_box(C_MISTAKE_ON, 11)
+		dot.custom_minimum_size = Vector2(26, 26)
+		var style: StyleBoxFlat = _rounded_box(C_MISTAKE_ON, 13)
 		dot.add_theme_stylebox_override("panel", style)
 		row.add_child(dot)
 		_mistake_dots.append(dot)
@@ -506,6 +454,7 @@ func _build_action_buttons(parent: VBoxContainer) -> void:
 	row.alignment = BoxContainer.ALIGNMENT_CENTER
 	row.add_theme_constant_override("separation", 10)
 	parent.add_child(row)
+	_action_row_node = row
 
 	_shuffle_btn  = _make_ghost_btn("Pomiješaj", "shuffle")
 	_deselect_btn = _make_ghost_btn("Poništi", "undo")
@@ -555,9 +504,7 @@ func _build_nav_row(parent: VBoxContainer) -> void:
 # ── Puzzle loading ─────────────────────────────────────────────────────────
 func _load_puzzle(index: int) -> void:
 	_state_generation += 1  # invalidates any pending awaits from the old puzzle (#4, #9)
-	_feedback_locked = false
-	_feedback_gen += 1
-
+	_hide_summary()
 	_state = GameState.new(_puzzles[index])
 	_state.selection_changed.connect(_on_selection_changed)
 	_state.guess_correct.connect(_on_guess_correct)
@@ -598,9 +545,9 @@ func _load_puzzle(index: int) -> void:
 	_set_submit_ready(false)
 	_update_hint_btn()
 
-	var prefix: String = "Dnevni  " if _is_daily else ("Dnevnih 5  " if _is_five_daily else "Slagalica ")
-	_puzzle_counter.text = "%s%d/%d" % [prefix, index + 1, _puzzles.size()]
-	_puzzle_stars.text   = "  " + _difficulty_badge(_puzzles[index])
+	_timer_label.text = "0s"
+	_timer_running    = true
+	_puzzle_stars.text = "  " + _difficulty_badge(_puzzles[index])
 	_update_session_label()
 	_rebuild_grid()
 
@@ -633,9 +580,9 @@ func _rebuild_grid() -> void:
 func _effective_font_size(word: String) -> int:
 	var base: int = _tile_font_override if _tile_font_override > 0 else TILE_FONT
 	if word.length() > 12:
-		return maxi(base - 4, 13)
+		return maxi(base - 4, 15)
 	elif word.length() > 8:
-		return maxi(base - 2, 14)
+		return maxi(base - 2, 16)
 	return base
 
 func _make_tile(word: String) -> Button:
@@ -646,12 +593,6 @@ func _make_tile(word: String) -> Button:
 	btn.clip_text = false
 	btn.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
 	btn.add_theme_font_size_override("font_size", _effective_font_size(word))
-
-	# Bold font for tiles (#21)
-	var fv := FontVariation.new()
-	fv.base_font = load(FONT_PATH)
-	fv.variation_opentype = {"wght": 600}
-	btn.add_theme_font_override("font", fv)
 
 	btn.pressed.connect(func() -> void: _state.toggle_word(word))
 
@@ -683,21 +624,21 @@ func _mixed_font(weight: int = 600) -> FontVariation:
 
 func _make_ghost_btn(label: String, icon_name: String = "") -> Button:
 	var btn: Button = Button.new()
-	btn.custom_minimum_size = Vector2(118, 46)
+	btn.custom_minimum_size = Vector2(118, 52)
 	if icon_name.is_empty():
 		btn.text = label
 	else:
 		btn.text = _icon(icon_name) + "  " + label
 		btn.add_theme_font_override("font", _mixed_font())
-		btn.add_theme_font_size_override("font_size", 16)
+		btn.add_theme_font_size_override("font_size", 18)
 	return btn
 
 func _make_hint_btn() -> Button:
 	var btn: Button = Button.new()
-	btn.custom_minimum_size = Vector2(138, 46)
+	btn.custom_minimum_size = Vector2(138, 52)
 	btn.text = _icon("lightbulb") + "  Hint  (%d)" % GameState.MAX_HINTS
 	btn.add_theme_font_override("font", _mixed_font())
-	btn.add_theme_font_size_override("font_size", 16)
+	btn.add_theme_font_size_override("font_size", 18)
 	return btn
 
 func _update_hint_btn() -> void:
@@ -780,89 +721,128 @@ const _FEEDBACK_CFG := {
 }
 
 func _show_typed_feedback(type: FeedbackType, msg: String, persistent: bool = false) -> void:
-	var cfg: Dictionary = _FEEDBACK_CFG[type]
+	# Evict oldest slot when full
+	if _active_feedbacks.size() >= FEEDBACK_MAX_SLOTS:
+		_dismiss_feedback_node(_active_feedbacks[0], true)
 
-	# Style the panel background
+	var cfg: Dictionary = _FEEDBACK_CFG[type]
+	var panel: PanelContainer = _make_feedback_panel(cfg, msg, persistent)
+	_feedback_container.add_child(panel)
+	_active_feedbacks.append(panel)
+
+	panel.scale    = Vector2(1.0, 0.6)
+	panel.modulate = Color(1, 1, 1, 0)
+	var t: Tween = create_tween().set_parallel(true)
+	t.tween_property(panel, "scale",    Vector2.ONE,  ANIM_FEEDBACK_SLIDE) \
+		.set_trans(Tween.TRANS_BACK).set_ease(Tween.EASE_OUT)
+	t.tween_property(panel, "modulate", Color.WHITE, ANIM_FEEDBACK_SLIDE * 0.8)
+
+	if not persistent:
+		var delay: float = FEEDBACK_ONE_AWAY_HIDE if type == FeedbackType.ONE_AWAY \
+			else FEEDBACK_AUTO_HIDE
+		_schedule_feedback_node_hide(panel, delay)
+
+func _make_feedback_panel(cfg: Dictionary, msg: String, persistent: bool) -> PanelContainer:
+	var panel: PanelContainer = PanelContainer.new()
+	panel.mouse_filter = Control.MOUSE_FILTER_STOP
+
 	var bg_style: StyleBoxFlat = _rounded_box(cfg["bg"], RADIUS_TILE)
 	bg_style.content_margin_top    = 12
 	bg_style.content_margin_bottom = 12
 	bg_style.content_margin_left   = 0
 	bg_style.content_margin_right  = 0
-	_feedback_panel.add_theme_stylebox_override("panel", bg_style)
+	panel.add_theme_stylebox_override("panel", bg_style)
 
-	_feedback_accent.color = cfg["accent"]
-	_feedback_icon.text    = _icon(cfg["icon"])
-	_feedback_icon.add_theme_color_override("font_color", cfg["accent"])
-	_feedback_label.text   = msg
-	_feedback_label.add_theme_color_override("font_color", cfg["text"])
+	var accent: ColorRect = ColorRect.new()
+	accent.custom_minimum_size = Vector2(5, 0)
+	accent.size_flags_vertical = Control.SIZE_EXPAND_FILL
+	accent.color = cfg["accent"]
 
-	if persistent:
-		_feedback_locked = true
+	var icon_lbl: Label = Label.new()
+	icon_lbl.vertical_alignment = VERTICAL_ALIGNMENT_CENTER
+	icon_lbl.add_theme_font_override("font", _icon_font())
+	icon_lbl.add_theme_font_size_override("font_size", 22)
+	icon_lbl.custom_minimum_size = Vector2(40, 0)
+	icon_lbl.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
+	icon_lbl.text = _icon(cfg["icon"])
+	icon_lbl.add_theme_color_override("font_color", cfg["accent"])
 
-	# Slide in from above if not yet visible, otherwise just update content
-	var was_visible: bool = _feedback_panel.visible
-	_feedback_panel.visible = true
+	var text_lbl: Label = Label.new()
+	text_lbl.theme_type_variation = "FeedbackLabel"
+	text_lbl.vertical_alignment = VERTICAL_ALIGNMENT_CENTER
+	text_lbl.size_flags_horizontal = Control.SIZE_EXPAND_FILL
+	text_lbl.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
+	text_lbl.text = msg
+	text_lbl.add_theme_color_override("font_color", cfg["text"])
 
-	if not was_visible:
-		# Scale from slightly above (Y < 1.0) + fade in — layout-safe inside VBox
-		_feedback_panel.scale    = Vector2(1.0, 0.6)
-		_feedback_panel.modulate = Color(1, 1, 1, 0)
-		var t: Tween = create_tween().set_parallel(true)
-		t.tween_property(_feedback_panel, "scale",    Vector2.ONE,    ANIM_FEEDBACK_SLIDE) \
-			.set_trans(Tween.TRANS_BACK).set_ease(Tween.EASE_OUT)
-		t.tween_property(_feedback_panel, "modulate", Color.WHITE, ANIM_FEEDBACK_SLIDE * 0.8)
-	else:
-		# Already visible — quick flash to draw attention to new content
-		var t: Tween = create_tween()
-		t.tween_property(_feedback_panel, "modulate", Color(1.2, 1.2, 1.2, 1.0), 0.07)
-		t.tween_property(_feedback_panel, "modulate", Color.WHITE, 0.10)
+	var inner: HBoxContainer = HBoxContainer.new()
+	inner.add_theme_constant_override("separation", 10)
+	inner.size_flags_horizontal = Control.SIZE_EXPAND_FILL
+	var pad_l: Control = Control.new()
+	pad_l.custom_minimum_size = Vector2(12, 0)
+	var pad_r: Control = Control.new()
+	pad_r.custom_minimum_size = Vector2(12, 0)
+	inner.add_child(pad_l)
+	inner.add_child(icon_lbl)
+	inner.add_child(text_lbl)
+	inner.add_child(pad_r)
 
-	if not persistent and not _feedback_locked:
-		var hide_delay: float = FEEDBACK_ONE_AWAY_HIDE if type == FeedbackType.ONE_AWAY \
-			else FEEDBACK_AUTO_HIDE
-		_feedback_gen += 1
-		_schedule_feedback_hide(_feedback_gen, hide_delay)
+	var hbox: HBoxContainer = HBoxContainer.new()
+	hbox.add_theme_constant_override("separation", 0)
+	hbox.add_child(accent)
+	hbox.add_child(inner)
+	panel.add_child(hbox)
 
-func _on_feedback_tapped(event: InputEvent) -> void:
-	if event is InputEventMouseButton and event.pressed:
-		_dismiss_feedback()
+	if not persistent:
+		panel.gui_input.connect(func(event: InputEvent) -> void:
+			if event is InputEventMouseButton and event.pressed:
+				_dismiss_feedback_node(panel, false))
 
-func _dismiss_feedback() -> void:
-	if not _feedback_panel.visible or _feedback_locked:
+	return panel
+
+func _dismiss_feedback_node(panel: Control, immediate: bool) -> void:
+	if not is_instance_valid(panel):
 		return
-	_feedback_gen += 1
+	_active_feedbacks.erase(panel)
+	if immediate:
+		panel.queue_free()
+		return
 	var t: Tween = create_tween()
-	t.tween_property(_feedback_panel, "modulate:a", 0.0, 0.18)
+	t.tween_property(panel, "modulate:a", 0.0, 0.18)
 	await t.finished
-	_feedback_panel.visible  = false
-	_feedback_panel.modulate = Color.WHITE
+	if is_instance_valid(panel):
+		panel.queue_free()
 
-func _schedule_feedback_hide(gen: int, delay: float) -> void:
+func _schedule_feedback_node_hide(panel: Control, delay: float) -> void:
 	await get_tree().create_timer(delay).timeout
-	if gen != _feedback_gen or _feedback_locked:
-		return
-	var t: Tween = create_tween()
-	t.tween_property(_feedback_panel, "modulate:a", 0.0, 0.30)
-	await t.finished
-	if gen == _feedback_gen and not _feedback_locked:
-		_feedback_panel.visible  = false
-		_feedback_panel.modulate = Color.WHITE
+	if is_instance_valid(panel):
+		_dismiss_feedback_node(panel, false)
 
-# Legacy thin wrapper kept so _load_puzzle can hide the panel
 func _hide_feedback() -> void:
-	_feedback_gen += 1
-	_feedback_locked = false
-	_feedback_panel.visible  = false
-	_feedback_panel.modulate = Color.WHITE
+	for p: Control in _active_feedbacks:
+		if is_instance_valid(p):
+			p.queue_free()
+	_active_feedbacks.clear()
+
+func _process(_delta: float) -> void:
+	if _timer_running and _puzzle_start_time > 0.0:
+		var elapsed := Time.get_unix_time_from_system() - _puzzle_start_time
+		_timer_label.text = _fmt_time(elapsed)
 
 # ── Signal handlers ────────────────────────────────────────────────────────
 func _on_selection_changed(selected: Array[String]) -> void:
 	for word in _tile_buttons:
 		var btn: Button = _tile_buttons[word]
 		if word in selected:
-			btn.add_theme_stylebox_override("normal", _tile_style_selected())
+			var s: StyleBoxFlat = _tile_style_selected()
+			btn.add_theme_stylebox_override("normal",  s)
+			btn.add_theme_stylebox_override("hover",   s)
+			btn.add_theme_stylebox_override("pressed", s)
 		else:
-			btn.add_theme_stylebox_override("normal", _tile_style_normal())
+			var s: StyleBoxFlat = _tile_style_normal()
+			btn.add_theme_stylebox_override("normal",  s)
+			btn.add_theme_stylebox_override("hover",   _rounded_box(C_TILE_HOVER, RADIUS_TILE))
+			btn.add_theme_stylebox_override("pressed", _rounded_box(C_TILE_HOVER, RADIUS_TILE))
 	var is_ready: bool = selected.size() == GameState.MAX_SELECTION
 	_submit_btn.disabled = not is_ready
 	_set_submit_ready(is_ready)
@@ -969,12 +949,13 @@ func _flash_tiles_wrong(btns: Array[Button]) -> void:  # (#1)
 		.set_delay(ANIM_FLASH)
 
 func _on_game_won() -> void:
+	_timer_running = false
 	var elapsed := Time.get_unix_time_from_system() - _puzzle_start_time
 	_state.puzzle_time_sec = elapsed
 	_puzzle_scores.append(_state.score)
 	_puzzle_times.append(elapsed)
 	var gen := _state_generation  # capture before await (#4)
-	_show_typed_feedback(FeedbackType.END, "Čestitamo!  Riješili ste slagalicu!", true)
+	_show_typed_feedback(FeedbackType.END, "Čestitamo!  Riješili ste slagalicu!")
 	_submit_btn.disabled = true
 	_set_submit_ready(false)
 	_record_session_score(_state.score)
@@ -985,12 +966,13 @@ func _on_game_won() -> void:
 	_show_summary(true)
 
 func _on_game_lost() -> void:
+	_timer_running = false
 	var elapsed := Time.get_unix_time_from_system() - _puzzle_start_time
 	_state.puzzle_time_sec = elapsed
 	_puzzle_scores.append(_state.score)
 	_puzzle_times.append(elapsed)
 	var gen := _state_generation
-	_show_typed_feedback(FeedbackType.END, "Igra završena — ostali ste bez pokušaja", true)
+	_show_typed_feedback(FeedbackType.END, "Igra završena — ostali ste bez pokušaja")
 	_submit_btn.disabled = true
 	_set_submit_ready(false)
 	_reveal_all()
@@ -1035,7 +1017,6 @@ func _add_solved_row(category: PuzzleData.Category) -> void:
 	cat_lbl.text = category.name.to_upper()
 	cat_lbl.theme_type_variation = "SolvedCategoryLabel"
 	cat_lbl.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
-	cat_lbl.add_theme_font_override("font", _make_font(700))  # bold category name (#21)
 	vbox.add_child(cat_lbl)
 
 	var words_lbl: Label = Label.new()
@@ -1050,7 +1031,6 @@ func _add_solved_row(category: PuzzleData.Category) -> void:
 		extra_lbl.theme_type_variation = "SolvedWordsLabel"
 		extra_lbl.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
 		extra_lbl.add_theme_color_override("font_color", diff_color.darkened(0.55))
-		extra_lbl.add_theme_font_override("font", _make_font(300))  # light hint text (#21)
 		vbox.add_child(extra_lbl)
 
 	# Shimmer applied to the panel itself so it covers the full background (#18)
@@ -1084,16 +1064,18 @@ func _add_solved_row_animated(category: PuzzleData.Category) -> void:
 
 # ── Summary overlay (#10, #11, #24) ───────────────────────────────────────
 func _show_summary(won: bool) -> void:
-	_close_overlay()
+	_hide_feedback()
+	_grid.visible            = false
+	_mistakes_row_node.visible = false
+	_action_row_node.visible   = false
+
+	var vbox: VBoxContainer = _summary_container
+
+	# Clear any leftover content from a previous puzzle
+	for child in vbox.get_children():
+		child.queue_free()
 
 	var summary := _state.get_puzzle_summary()
-
-	var dim: ColorRect = _make_dim()
-	_overlay = dim
-	_overlay_tag = "summary"
-
-	var panel: PanelContainer = _make_overlay_panel(dim, 460)
-	var vbox: VBoxContainer = _make_overlay_vbox(panel, 14)
 
 	# Title
 	var title_lbl: Label = Label.new()
@@ -1101,14 +1083,7 @@ func _show_summary(won: bool) -> void:
 	title_lbl.theme_type_variation = "TitleLabel"
 	title_lbl.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
 	title_lbl.add_theme_font_size_override("font_size", 26)
-	title_lbl.add_theme_font_override("font", _make_font(700))
 	vbox.add_child(title_lbl)
-
-	var puzzle_lbl: Label = Label.new()
-	puzzle_lbl.text = _puzzles[_current_puzzle_index].title
-	puzzle_lbl.theme_type_variation = "MetaLabel"
-	puzzle_lbl.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
-	vbox.add_child(puzzle_lbl)
 
 	# Score
 	var score_lbl: Label = Label.new()
@@ -1122,7 +1097,7 @@ func _show_summary(won: bool) -> void:
 
 	_add_separator(vbox)
 
-	# Stats row
+	# Stats
 	for pair in [
 		["Kategorije", "%d / %d" % [summary["solved_count"], summary["total_count"]]],
 		["Greške",     "%d / %d" % [summary["mistakes_used"], GameState.MAX_MISTAKES]],
@@ -1138,7 +1113,7 @@ func _show_summary(won: bool) -> void:
 
 	_add_separator(vbox)
 
-	# Category breakdown with points (#11)
+	# Category breakdown
 	var cat_scores: Dictionary = summary["category_scores"]
 	for cat in _state.puzzle.categories:
 		var solved: bool = cat in _state.solved_categories
@@ -1162,7 +1137,7 @@ func _show_summary(won: bool) -> void:
 		var pts_lbl: Label = Label.new()
 		if solved and cat.name in cat_scores:
 			var pts: int = cat_scores[cat.name]
-			pts_lbl.text = "%d bod" % pts
+			pts_lbl.text = "%d bodova" % pts
 			pts_lbl.add_theme_color_override("font_color", C_WIN if pts > 0 else C_TEXT_DIM)
 		else:
 			pts_lbl.text = "—"
@@ -1170,57 +1145,38 @@ func _show_summary(won: bool) -> void:
 		pts_lbl.theme_type_variation = "MetaLabel"
 		row.add_child(pts_lbl)
 
-	# Guess history (#24)
-	if _state.guess_history.size() > 0:
-		_add_separator(vbox)
-		var hist_lbl: Label = Label.new()
-		hist_lbl.text = "Tijek rješavanja"
-		hist_lbl.theme_type_variation = "SubtitleLabel"
-		vbox.add_child(hist_lbl)
-
-		for guess in _state.guess_history:
-			var hrow: HBoxContainer = HBoxContainer.new()
-			hrow.alignment = BoxContainer.ALIGNMENT_CENTER
-			hrow.add_theme_constant_override("separation", 6)
-			vbox.add_child(hrow)
-			for word in guess:
-				var wcat := _state.find_category_for_word(word)
-				var dc: Color = PuzzleData.DIFFICULTY_COLORS[wcat.difficulty] if wcat else C_TEXT_DIM
-				var dp: Panel = Panel.new()
-				dp.custom_minimum_size = Vector2(20, 20)
-				dp.add_theme_stylebox_override("panel", _rounded_box(dc, 10))
-				hrow.add_child(dp)
-
 	_add_separator(vbox)
 
-	# Buttons
+	# Action button
 	var btn_row: HBoxContainer = HBoxContainer.new()
 	btn_row.alignment = BoxContainer.ALIGNMENT_CENTER
-	btn_row.add_theme_constant_override("separation", 12)
 	vbox.add_child(btn_row)
 
-	var close_btn: Button = _make_ghost_btn("Zatvori")
-	close_btn.theme_type_variation = "GhostButton"
-	close_btn.pressed.connect(_close_overlay)
-	btn_row.add_child(close_btn)
-
-	# "Next puzzle" or "Završi" on last puzzle
 	if _current_puzzle_index < _puzzles.size() - 1:
-		var next_btn: Button = _make_ghost_btn("Sljedeća", "next")
+		var next_btn: Button = _make_ghost_btn("Sljedeća slagalica", "next")
 		next_btn.theme_type_variation = "GhostButton"
-		next_btn.pressed.connect(func() -> void:
-			_close_overlay()
-			_navigate_puzzle(1))
+		next_btn.pressed.connect(func() -> void: _navigate_puzzle(1))
 		btn_row.add_child(next_btn)
 	else:
-		var finish_btn: Button = _make_ghost_btn("Završi")
+		var finish_btn: Button = _make_ghost_btn("Završi i spremi")
 		finish_btn.theme_type_variation = "GhostButton"
-		finish_btn.pressed.connect(func() -> void:
-			_close_overlay()
-			_show_name_picker())
+		finish_btn.pressed.connect(_show_name_picker)
 		btn_row.add_child(finish_btn)
 
-	_animate_overlay_in(dim, panel)
+	# Fade in
+	var wrapper: Control = _summary_container.get_parent()
+	wrapper.modulate = Color(1, 1, 1, 0)
+	wrapper.visible  = true
+	var t: Tween = create_tween()
+	t.tween_property(wrapper, "modulate", Color.WHITE, 0.25)
+
+func _hide_summary() -> void:
+	for child in _summary_container.get_children():
+		child.queue_free()
+	_summary_container.get_parent().visible = false
+	_grid.visible              = true
+	_mistakes_row_node.visible = true
+	_action_row_node.visible   = true
 
 # ── Name picker overlay ────────────────────────────────────────────────────
 func _show_name_picker() -> void:
@@ -1238,7 +1194,6 @@ func _show_name_picker() -> void:
 	header.theme_type_variation = "TitleLabel"
 	header.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
 	header.add_theme_font_size_override("font_size", 20)
-	header.add_theme_font_override("font", _make_font(700))
 	vbox.add_child(header)
 
 	_add_separator(vbox)
@@ -1248,14 +1203,12 @@ func _show_name_picker() -> void:
 	name_display.theme_type_variation = "ScoreLabel"
 	name_display.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
 	name_display.add_theme_font_size_override("font_size", 26)
-	name_display.add_theme_font_override("font", _make_font(600))
 	name_display.custom_minimum_size = Vector2(0, 44)
 	vbox.add_child(name_display)
 
 	var hint_lbl: Label = Label.new()
 	hint_lbl.text = "4–10 znakova"
 	hint_lbl.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
-	hint_lbl.add_theme_font_override("font", _make_font(400))
 	hint_lbl.add_theme_font_size_override("font_size", 13)
 	hint_lbl.add_theme_color_override("font_color", C_TEXT_DIM)
 	vbox.add_child(hint_lbl)
@@ -1291,7 +1244,6 @@ func _show_name_picker() -> void:
 			var btn := Button.new()
 			btn.focus_mode = Control.FOCUS_NONE
 			btn.add_theme_font_size_override("font_size", 15)
-			btn.add_theme_font_override("font", _make_font(500))
 
 			var is_fn:  bool = ch == "DEL" or ch == "OK"
 			var is_num: bool = ch.is_valid_int()
@@ -1412,7 +1364,6 @@ func _show_submitting_overlay(player_name: String, score: int, time_sec: float,
 	lbl.theme_type_variation = "TitleLabel"
 	lbl.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
 	lbl.add_theme_font_size_override("font_size", 20)
-	lbl.add_theme_font_override("font", _make_font(600))
 	vbox.add_child(lbl)
 
 	_animate_overlay_in(dim, panel)
@@ -1457,14 +1408,13 @@ func _show_leaderboard_overlay(mode: String, date_str: String, my_uid: String, m
 	header.theme_type_variation = "TitleLabel"
 	header.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
 	header.add_theme_font_size_override("font_size", 20)
-	header.add_theme_font_override("font", _make_font(700))
 	vbox.add_child(header)
 
 	var date_lbl := Label.new()
 	var parts := date_str.split("-")
 	date_lbl.text = "%s.%s.%s." % [parts[2], parts[1], parts[0]]
 	date_lbl.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
-	date_lbl.add_theme_font_override("font", _make_font(300))
+	date_lbl.add_theme_font_override("font", _make_font(500))
 	date_lbl.add_theme_color_override("font_color", C_TEXT_DIM)
 	date_lbl.add_theme_font_size_override("font_size", 14)
 	vbox.add_child(date_lbl)
@@ -1526,7 +1476,6 @@ func _show_leaderboard_overlay(mode: String, date_str: String, my_uid: String, m
 				var rank_lbl := Label.new()
 				rank_lbl.text = "Tvoje mjesto: #%d" % my_rank
 				rank_lbl.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
-				rank_lbl.add_theme_font_override("font", _make_font(600))
 				rank_lbl.add_theme_color_override("font_color", C_ACCENT)
 				vbox.add_child(rank_lbl)
 
@@ -1563,18 +1512,17 @@ func _make_leaderboard_row(rank: int, entry: Dictionary, is_me: bool) -> Control
 	var name_lbl := Label.new()
 	name_lbl.text = entry["name"]
 	name_lbl.size_flags_horizontal = Control.SIZE_EXPAND_FILL
-	name_lbl.add_theme_font_override("font", _make_font(600 if is_me else 400))
+	name_lbl.add_theme_font_override("font", _make_font(700 if is_me else 600))
 	row.add_child(name_lbl)
 
 	var score_lbl := Label.new()
 	score_lbl.text = "%d" % entry["score"]
-	score_lbl.add_theme_font_override("font", _make_font(600))
 	score_lbl.add_theme_color_override("font_color", C_WIN if is_me else C_TEXT)
 	row.add_child(score_lbl)
 
 	var time_lbl := Label.new()
 	time_lbl.text = "  " + _fmt_time(entry["time"])
-	time_lbl.add_theme_font_override("font", _make_font(300))
+	time_lbl.add_theme_font_override("font", _make_font(500))
 	time_lbl.add_theme_color_override("font_color", C_TEXT_DIM)
 	time_lbl.add_theme_font_size_override("font_size", 13)
 	row.add_child(time_lbl)
@@ -1613,7 +1561,6 @@ func _on_settings() -> void:
 	title_lbl.theme_type_variation = "TitleLabel"
 	title_lbl.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
 	title_lbl.add_theme_font_size_override("font_size", 22)
-	title_lbl.add_theme_font_override("font", _make_font(700))
 	vbox.add_child(title_lbl)
 
 	_add_separator(vbox)
@@ -1628,7 +1575,7 @@ func _on_settings() -> void:
 	fs_row.add_theme_constant_override("separation", 10)
 	vbox.add_child(fs_row)
 
-	for pair in [["Malo", 14], ["Srednje", 18], ["Veliko", 22]]:
+	for pair in [["Malo", 16], ["Srednje", 20], ["Veliko", 24]]:
 		var fs_btn: Button = _make_ghost_btn(pair[0])
 		fs_btn.theme_type_variation = "GhostButton"
 		fs_btn.custom_minimum_size = Vector2(100, 44)
@@ -1877,5 +1824,4 @@ func _navigate_puzzle(direction: int) -> void:
 	_current_puzzle_index = (_current_puzzle_index + direction) % _puzzles.size()
 	if _current_puzzle_index < 0:
 		_current_puzzle_index = _puzzles.size() - 1
-	_close_overlay()
 	_load_puzzle(_current_puzzle_index)
