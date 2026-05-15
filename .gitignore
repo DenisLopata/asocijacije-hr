@@ -14,3 +14,7 @@ export/web/*
 # OS junk
 .DS_Store
 Thumbs.db
+
+# Files containing API keys — never commit
+scripts/firebase_client.gd
+web/firebase_init.js

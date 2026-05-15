@@ -1,0 +1,5 @@
+firebase.initializeApp({
+  apiKey: "YOUR_FIREBASE_API_KEY",
+  authDomain: "asocijacije-hr.firebaseapp.com",
+  projectId: "asocijacije-hr"
+});

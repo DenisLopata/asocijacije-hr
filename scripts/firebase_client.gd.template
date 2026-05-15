@@ -1,0 +1,4 @@
+extends Node
+
+const API_KEY    := "YOUR_FIREBASE_API_KEY"
+const PROJECT_ID := "asocijacije-hr"
