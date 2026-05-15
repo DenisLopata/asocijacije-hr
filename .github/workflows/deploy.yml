@@ -26,6 +26,14 @@ jobs:
           mv templates/* ~/.local/share/godot/export_templates/4.6.2.stable/
           ls ~/.local/share/godot/export_templates/4.6.2.stable/ | head -5
 
+      - name: Generate files from secrets
+        env:
+          FIREBASE_API_KEY: ${{ secrets.FIREBASE_API_KEY }}
+        run: |
+          sed "s/YOUR_FIREBASE_API_KEY/${FIREBASE_API_KEY}/" scripts/firebase_client.gd.template > scripts/firebase_client.gd
+          sed "s/YOUR_FIREBASE_API_KEY/${FIREBASE_API_KEY}/" web/firebase_init.js.template > web/firebase_init.js
+          echo "Generated firebase_client.gd and firebase_init.js"
+
       - name: Export to Web
         run: |
           mkdir -p export/web
