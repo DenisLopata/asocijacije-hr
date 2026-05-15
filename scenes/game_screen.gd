@@ -515,14 +515,14 @@ func _build_nav_row(parent: VBoxContainer) -> void:
 	var menu_btn: Button = _make_ghost_btn("Izbornik", "menu")
 	menu_btn.pressed.connect(_go_to_menu)
 	menu_btn.theme_type_variation = "GhostButton"
-	if _is_daily:
-		menu_btn.size_flags_horizontal = Control.SIZE_EXPAND_FILL
+	menu_btn.size_flags_horizontal = Control.SIZE_EXPAND_FILL
 	row.add_child(menu_btn)
 
 	if not _is_daily:
 		var new_btn: Button = _make_ghost_btn("Novi set", "refresh")
 		new_btn.pressed.connect(_on_new_set)
 		new_btn.theme_type_variation = "GhostButton"
+		new_btn.size_flags_horizontal = Control.SIZE_EXPAND_FILL
 		row.add_child(new_btn)
 
 # ── Puzzle loading ─────────────────────────────────────────────────────────
