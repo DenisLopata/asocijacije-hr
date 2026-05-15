@@ -157,6 +157,7 @@ var _feedback_container: VBoxContainer
 var _active_feedbacks: Array[Control] = []
 var _mistakes_row_node: Control
 var _action_row_node: Control
+var _nav_row_node: Control
 var _summary_action_row: HBoxContainer
 var _summary_container: VBoxContainer
 var _timer_label: Label
@@ -230,8 +231,8 @@ func _ready() -> void:
 		var daily_seed: int = get_tree().get_meta("daily_seed")
 		get_tree().remove_meta("daily_seed")
 		seed(daily_seed)
-		var _yd := Time.get_date_dict_from_unix_time(Time.get_unix_time_from_system() - 86400.0)
-		var yesterday_seed: int = _yd.year * 10000 + _yd.month * 100 + _yd.day
+		var _yd := Time.get_date_dict_from_unix_time(int(Time.get_unix_time_from_system()) - 86400)
+		var yesterday_seed: int = int(_yd.year) * 10000 + int(_yd.month) * 100 + int(_yd.day)
 		_puzzles = [PuzzleData.get_single_puzzle(yesterday_seed)]
 		_build_ui()
 		_load_puzzle(_current_puzzle_index)
@@ -240,9 +241,21 @@ func _ready() -> void:
 		var five_seed: int = get_tree().get_meta("five_seed")
 		get_tree().remove_meta("five_seed")
 		seed(five_seed)
-		_puzzles = PuzzleData.get_puzzles()
-		_build_ui()
-		_load_puzzle(_current_puzzle_index)
+		var saved_five := SaveManager.load_session()
+		if saved_five.size() > 0:
+			_puzzles = saved_five["puzzles"]
+			_current_puzzle_index = saved_five["current_index"]
+			for t in saved_five.get("puzzle_times", []):
+				_puzzle_times.append(float(t))
+			for s in saved_five.get("puzzle_scores", []):
+				_puzzle_scores.append(int(s))
+			_build_ui()
+			_load_puzzle(_current_puzzle_index)
+			_restore_state(saved_five["state"])
+		else:
+			_puzzles = PuzzleData.get_puzzles()
+			_build_ui()
+			_load_puzzle(_current_puzzle_index)
 	else:
 		var saved := SaveManager.load_session()
 		if saved.size() > 0:
@@ -475,27 +488,23 @@ func _build_action_buttons(parent: VBoxContainer) -> void:
 	_submit_btn.pressed.connect(_on_submit)
 	_hint_btn.pressed.connect(_on_hint)
 
-	var top_row: HBoxContainer = HBoxContainer.new()
-	top_row.alignment = BoxContainer.ALIGNMENT_CENTER
-	top_row.add_theme_constant_override("separation", 10)
-	vbox.add_child(top_row)
-	top_row.add_child(_shuffle_btn)
-	_shuffle_btn.theme_type_variation = "GhostButton"
-	_shuffle_btn.size_flags_horizontal = Control.SIZE_EXPAND_FILL
-	top_row.add_child(_deselect_btn)
-	_deselect_btn.theme_type_variation = "GhostButton"
-	_deselect_btn.size_flags_horizontal = Control.SIZE_EXPAND_FILL
+	_submit_btn.theme_type_variation = "GhostButton"
+	_submit_btn.size_flags_horizontal = Control.SIZE_EXPAND_FILL
+	vbox.add_child(_submit_btn)
 
 	var bot_row: HBoxContainer = HBoxContainer.new()
 	bot_row.alignment = BoxContainer.ALIGNMENT_CENTER
 	bot_row.add_theme_constant_override("separation", 10)
 	vbox.add_child(bot_row)
+	bot_row.add_child(_shuffle_btn)
+	_shuffle_btn.theme_type_variation = "GhostButton"
+	_shuffle_btn.size_flags_horizontal = Control.SIZE_EXPAND_FILL
+	bot_row.add_child(_deselect_btn)
+	_deselect_btn.theme_type_variation = "GhostButton"
+	_deselect_btn.size_flags_horizontal = Control.SIZE_EXPAND_FILL
 	bot_row.add_child(_hint_btn)
 	_hint_btn.theme_type_variation = "HintButton"
 	_hint_btn.size_flags_horizontal = Control.SIZE_EXPAND_FILL
-	bot_row.add_child(_submit_btn)
-	_submit_btn.theme_type_variation = "GhostButton"
-	_submit_btn.size_flags_horizontal = Control.SIZE_EXPAND_FILL
 
 func _build_nav_row(parent: VBoxContainer) -> void:
 	var spacer: Control = Control.new()
@@ -511,6 +520,7 @@ func _build_nav_row(parent: VBoxContainer) -> void:
 	row.alignment = BoxContainer.ALIGNMENT_CENTER
 	row.add_theme_constant_override("separation", 16)
 	parent.add_child(row)
+	_nav_row_node = row
 
 	var menu_btn: Button = _make_ghost_btn("Izbornik", "menu")
 	menu_btn.pressed.connect(_go_to_menu)
@@ -518,7 +528,7 @@ func _build_nav_row(parent: VBoxContainer) -> void:
 	menu_btn.size_flags_horizontal = Control.SIZE_EXPAND_FILL
 	row.add_child(menu_btn)
 
-	if not _is_daily:
+	if not _is_daily and not _is_five_daily:
 		var new_btn: Button = _make_ghost_btn("Novi set", "refresh")
 		new_btn.pressed.connect(_on_new_set)
 		new_btn.theme_type_variation = "GhostButton"
@@ -963,7 +973,7 @@ func _on_guess_correct(category: PuzzleData.Category) -> void:
 	_rebuild_grid()
 	_add_solved_row_animated(category)
 	if not _is_daily:
-		SaveManager.save_session.call_deferred(_puzzles, _current_puzzle_index, _state)  # (#27)
+		SaveManager.save_session.call_deferred(_puzzles, _current_puzzle_index, _state, _puzzle_times, _puzzle_scores, _puzzle_start_time)  # (#27)
 
 func _on_guess_wrong(words: Array[String], one_away: bool) -> void:  # (#5: use explicit words param)
 	var used: int = GameState.MAX_MISTAKES - _state.mistakes_remaining
@@ -1001,7 +1011,7 @@ func _on_guess_wrong(words: Array[String], one_away: bool) -> void:  # (#5: use 
 		_show_typed_feedback(FeedbackType.WRONG, "Nije točno — pokušaj ponovo")
 
 	if not _is_daily:
-		SaveManager.save_session.call_deferred(_puzzles, _current_puzzle_index, _state)
+		SaveManager.save_session.call_deferred(_puzzles, _current_puzzle_index, _state, _puzzle_times, _puzzle_scores, _puzzle_start_time)
 
 func _flash_tiles_wrong(btns: Array[Button]) -> void:  # (#1)
 	if btns.is_empty():
@@ -1134,9 +1144,12 @@ func _add_solved_row_animated(category: PuzzleData.Category) -> void:
 # ── Summary overlay (#10, #11, #24) ───────────────────────────────────────
 func _show_summary(won: bool) -> void:
 	_hide_feedback()
-	_grid.visible            = false
+	_grid.visible              = false
 	_mistakes_row_node.visible = false
 	_action_row_node.visible   = false
+	_nav_row_node.visible      = false
+	_puzzle_stars.visible      = false
+	_timer_label.visible       = false
 
 	var vbox: VBoxContainer = _summary_container
 
@@ -1227,6 +1240,24 @@ func _show_summary(won: bool) -> void:
 		next_btn.pressed.connect(func() -> void: _navigate_puzzle(1))
 		_summary_action_row.add_child(next_btn)
 	else:
+		# Last puzzle — lock in the daily result immediately so the day is marked
+		# done regardless of whether the player submits to the leaderboard.
+		if _is_daily or _is_five_daily:
+			var td := SaveManager.get_today()
+			var total_score := 0
+			var total_time  := 0.0
+			for s in _puzzle_scores:
+				total_score += s
+			for t in _puzzle_times:
+				total_time += t
+			if _is_daily:
+				SaveManager.save_daily_result(td["date_str"], total_score, total_time)
+				SaveManager.update_streak(td["date_str"], "daily")
+			else:
+				SaveManager.save_five_result(td["date_str"], total_score, total_time)
+				SaveManager.update_streak(td["date_str"], "five")
+			SaveManager.clear_save()
+
 		var finish_btn: Button = _make_ghost_btn("Završi i spremi")
 		finish_btn.theme_type_variation = "GhostButton"
 		finish_btn.size_flags_horizontal = Control.SIZE_EXPAND_FILL
@@ -1252,6 +1283,9 @@ func _hide_summary() -> void:
 	_grid.visible              = true
 	_mistakes_row_node.visible = true
 	_action_row_node.visible   = true
+	_nav_row_node.visible      = true
+	_puzzle_stars.visible      = true
+	_timer_label.visible       = true
 
 # ── Name picker overlay ────────────────────────────────────────────────────
 func _show_name_picker() -> void:
@@ -1408,6 +1442,17 @@ func _show_name_picker() -> void:
 									lb.disabled = true)
 			row_hbox.add_child(btn)
 
+	if _is_daily or _is_five_daily:
+		_add_separator(vbox)
+		var skip_btn: Button = _make_ghost_btn("Preskoči ljestvicu")
+		skip_btn.theme_type_variation = "GhostButton"
+		skip_btn.size_flags_horizontal = Control.SIZE_EXPAND_FILL
+		skip_btn.add_theme_color_override("font_color", C_TEXT_DIM)
+		skip_btn.pressed.connect(func() -> void:
+			_close_overlay()
+			_go_to_menu())
+		vbox.add_child(skip_btn)
+
 	_animate_overlay_in(dim, panel)
 
 func _on_name_confirmed(player_name: String) -> void:
@@ -1422,14 +1467,8 @@ func _on_name_confirmed(player_name: String) -> void:
 	var date_str    : String = td["date_str"]
 	var daily_seed  : int    = td["daily_seed"]
 
-	if _is_daily:
-		SaveManager.save_daily_result(date_str, total_score, total_time)
-		SaveManager.update_streak(date_str, "daily")
-	elif _is_five_daily:
-		SaveManager.save_five_result(date_str, total_score, total_time)
-		SaveManager.update_streak(date_str, "five")
-
-	SaveManager.clear_save()
+	if not _is_daily and not _is_five_daily:
+		SaveManager.clear_save()
 	_close_overlay()
 
 	if _is_daily or _is_five_daily:
@@ -1886,7 +1925,7 @@ func _on_hint_solve(category: PuzzleData.Category, hints_left: int) -> void:
 	_add_solved_row_animated(category)
 	_rebuild_grid()
 	if not _is_daily:
-		SaveManager.save_session.call_deferred(_puzzles, _current_puzzle_index, _state)
+		SaveManager.save_session.call_deferred(_puzzles, _current_puzzle_index, _state, _puzzle_times, _puzzle_scores, _puzzle_start_time)
 
 func _highlight_peeked_category(category_name: String) -> void:
 	for cat in _state.puzzle.categories:
