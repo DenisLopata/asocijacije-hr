@@ -78,9 +78,9 @@ const SPARKLE_INTENSITY: Dictionary = {
 	PuzzleData.Difficulty.PURPLE: 0.14,
 }
 
-const _SHADER_BG       := preload("res://shaders/background.gdshader")
-const _SHADER_VIGNETTE := preload("res://shaders/vignette.gdshader")
-const _SHADER_SHIMMER  := preload("res://shaders/shimmer.gdshader")
+const _SHADER_BG       : Shader = preload("res://shaders/background.gdshader")
+const _SHADER_VIGNETTE : Shader = preload("res://shaders/vignette.gdshader")
+const _SHADER_SHIMMER  : Shader = preload("res://shaders/shimmer.gdshader")
 
 # ── State ──────────────────────────────────────────────────────────────────
 var _state: GameState
