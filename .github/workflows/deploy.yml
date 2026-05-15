@@ -34,6 +34,9 @@ jobs:
           sed "s/YOUR_FIREBASE_API_KEY/${FIREBASE_API_KEY}/" web/firebase_init.js.template > web/firebase_init.js
           echo "Generated firebase_client.gd and firebase_init.js"
 
+      - name: Import project resources
+        run: ./godot --headless --import
+
       - name: Export to Web
         run: |
           mkdir -p export/web
