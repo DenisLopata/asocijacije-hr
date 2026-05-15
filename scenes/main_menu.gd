@@ -374,7 +374,7 @@ func _make_menu_btn(label: String, subtitle: String, style: String) -> Button:
 		var main_lbl: Label = Label.new()
 		main_lbl.text = label
 		main_lbl.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
-		main_lbl.add_theme_font_override("font", _make_font(600))
+		main_lbl.add_theme_font_override("font", _make_font(700))
 		main_lbl.add_theme_font_size_override("font_size", 18)
 		main_lbl.mouse_filter = Control.MOUSE_FILTER_IGNORE
 		vbox.add_child(main_lbl)
@@ -382,7 +382,7 @@ func _make_menu_btn(label: String, subtitle: String, style: String) -> Button:
 		var sub_lbl: Label = Label.new()
 		sub_lbl.text = subtitle
 		sub_lbl.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
-		sub_lbl.add_theme_font_override("font", _mixed_font(300))
+		sub_lbl.add_theme_font_override("font", _mixed_font(400))
 		sub_lbl.add_theme_font_size_override("font_size", 15)
 		sub_lbl.add_theme_color_override("font_color", C_TEXT.darkened(0.15))
 		sub_lbl.mouse_filter = Control.MOUSE_FILTER_IGNORE
@@ -392,7 +392,7 @@ func _make_menu_btn(label: String, subtitle: String, style: String) -> Button:
 		btn.text = ""
 	else:
 		btn.text = label
-		btn.add_theme_font_override("font", _make_font(600))
+		btn.add_theme_font_override("font", _make_font(700))
 		btn.add_theme_font_size_override("font_size", 18)
 
 	# Micro-bounce

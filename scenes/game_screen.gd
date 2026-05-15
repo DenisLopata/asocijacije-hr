@@ -174,6 +174,7 @@ var _feedback_container: VBoxContainer
 var _active_feedbacks: Array[Control] = []
 var _mistakes_row_node: Control
 var _action_row_node: Control
+var _summary_action_row: HBoxContainer
 var _summary_container: VBoxContainer
 var _timer_label: Label
 var _timer_running: bool = false
@@ -341,6 +342,12 @@ func _build_ui() -> void:
 	_summary_container.add_theme_constant_override("separation", 14)
 	summary_margin.add_child(_summary_container)
 
+	_summary_action_row = HBoxContainer.new()
+	_summary_action_row.alignment = BoxContainer.ALIGNMENT_CENTER
+	_summary_action_row.add_theme_constant_override("separation", 10)
+	_summary_action_row.visible = false
+	outer_vbox.add_child(_summary_action_row)
+
 	_build_action_buttons(outer_vbox)
 	_build_nav_row(outer_vbox)
 
@@ -443,18 +450,17 @@ func _build_mistakes_row(parent: VBoxContainer) -> void:
 
 	for i in GameState.MAX_MISTAKES:
 		var dot: Panel = Panel.new()
-		dot.custom_minimum_size = Vector2(26, 26)
-		var style: StyleBoxFlat = _rounded_box(C_MISTAKE_ON, 13)
+		dot.custom_minimum_size = Vector2(32, 32)
+		var style: StyleBoxFlat = _rounded_box(C_MISTAKE_ON, 16)
 		dot.add_theme_stylebox_override("panel", style)
 		row.add_child(dot)
 		_mistake_dots.append(dot)
 
 func _build_action_buttons(parent: VBoxContainer) -> void:
-	var row: HBoxContainer = HBoxContainer.new()
-	row.alignment = BoxContainer.ALIGNMENT_CENTER
-	row.add_theme_constant_override("separation", 10)
-	parent.add_child(row)
-	_action_row_node = row
+	var vbox: VBoxContainer = VBoxContainer.new()
+	vbox.add_theme_constant_override("separation", 10)
+	parent.add_child(vbox)
+	_action_row_node = vbox
 
 	_shuffle_btn  = _make_ghost_btn("Pomiješaj", "shuffle")
 	_deselect_btn = _make_ghost_btn("Poništi", "undo")
@@ -466,14 +472,27 @@ func _build_action_buttons(parent: VBoxContainer) -> void:
 	_submit_btn.pressed.connect(_on_submit)
 	_hint_btn.pressed.connect(_on_hint)
 
-	row.add_child(_shuffle_btn)
+	var top_row: HBoxContainer = HBoxContainer.new()
+	top_row.alignment = BoxContainer.ALIGNMENT_CENTER
+	top_row.add_theme_constant_override("separation", 10)
+	vbox.add_child(top_row)
+	top_row.add_child(_shuffle_btn)
 	_shuffle_btn.theme_type_variation = "GhostButton"
-	row.add_child(_deselect_btn)
+	_shuffle_btn.size_flags_horizontal = Control.SIZE_EXPAND_FILL
+	top_row.add_child(_deselect_btn)
 	_deselect_btn.theme_type_variation = "GhostButton"
-	row.add_child(_submit_btn)
-	_submit_btn.theme_type_variation = "GhostButton"
-	row.add_child(_hint_btn)
+	_deselect_btn.size_flags_horizontal = Control.SIZE_EXPAND_FILL
+
+	var bot_row: HBoxContainer = HBoxContainer.new()
+	bot_row.alignment = BoxContainer.ALIGNMENT_CENTER
+	bot_row.add_theme_constant_override("separation", 10)
+	vbox.add_child(bot_row)
+	bot_row.add_child(_hint_btn)
 	_hint_btn.theme_type_variation = "HintButton"
+	_hint_btn.size_flags_horizontal = Control.SIZE_EXPAND_FILL
+	bot_row.add_child(_submit_btn)
+	_submit_btn.theme_type_variation = "GhostButton"
+	_submit_btn.size_flags_horizontal = Control.SIZE_EXPAND_FILL
 
 func _build_nav_row(parent: VBoxContainer) -> void:
 	var spacer: Control = Control.new()
@@ -615,7 +634,7 @@ func _make_tile(word: String) -> Button:
 func _icon_font() -> FontFile:
 	return load(ICON_FONT_PATH) as FontFile
 
-func _mixed_font(weight: int = 600) -> FontVariation:
+func _mixed_font(weight: int = 700) -> FontVariation:
 	var fv := FontVariation.new()
 	fv.base_font = load(FONT_PATH)
 	fv.variation_opentype = {"wght": weight}
@@ -624,7 +643,7 @@ func _mixed_font(weight: int = 600) -> FontVariation:
 
 func _make_ghost_btn(label: String, icon_name: String = "") -> Button:
 	var btn: Button = Button.new()
-	btn.custom_minimum_size = Vector2(118, 52)
+	btn.custom_minimum_size = Vector2(118, 60)
 	if icon_name.is_empty():
 		btn.text = label
 	else:
@@ -635,7 +654,7 @@ func _make_ghost_btn(label: String, icon_name: String = "") -> Button:
 
 func _make_hint_btn() -> Button:
 	var btn: Button = Button.new()
-	btn.custom_minimum_size = Vector2(138, 52)
+	btn.custom_minimum_size = Vector2(138, 60)
 	btn.text = _icon("lightbulb") + "  Hint  (%d)" % GameState.MAX_HINTS
 	btn.add_theme_font_override("font", _mixed_font())
 	btn.add_theme_font_size_override("font_size", 18)
@@ -1147,21 +1166,24 @@ func _show_summary(won: bool) -> void:
 
 	_add_separator(vbox)
 
-	# Action button
-	var btn_row: HBoxContainer = HBoxContainer.new()
-	btn_row.alignment = BoxContainer.ALIGNMENT_CENTER
-	vbox.add_child(btn_row)
+	# Action button — lives outside the scroll so it's always visible
+	for child in _summary_action_row.get_children():
+		child.queue_free()
 
 	if _current_puzzle_index < _puzzles.size() - 1:
 		var next_btn: Button = _make_ghost_btn("Sljedeća slagalica", "next")
 		next_btn.theme_type_variation = "GhostButton"
+		next_btn.size_flags_horizontal = Control.SIZE_EXPAND_FILL
 		next_btn.pressed.connect(func() -> void: _navigate_puzzle(1))
-		btn_row.add_child(next_btn)
+		_summary_action_row.add_child(next_btn)
 	else:
 		var finish_btn: Button = _make_ghost_btn("Završi i spremi")
 		finish_btn.theme_type_variation = "GhostButton"
+		finish_btn.size_flags_horizontal = Control.SIZE_EXPAND_FILL
 		finish_btn.pressed.connect(_show_name_picker)
-		btn_row.add_child(finish_btn)
+		_summary_action_row.add_child(finish_btn)
+
+	_summary_action_row.visible = true
 
 	# Fade in
 	var wrapper: Control = _summary_container.get_parent()
@@ -1174,6 +1196,9 @@ func _hide_summary() -> void:
 	for child in _summary_container.get_children():
 		child.queue_free()
 	_summary_container.get_parent().visible = false
+	_summary_action_row.visible = false
+	for child in _summary_action_row.get_children():
+		child.queue_free()
 	_grid.visible              = true
 	_mistakes_row_node.visible = true
 	_action_row_node.visible   = true
@@ -1186,7 +1211,7 @@ func _show_name_picker() -> void:
 	_overlay = dim
 	_overlay_tag = "name_picker"
 
-	var panel: PanelContainer = _make_overlay_panel(dim, 400)
+	var panel: PanelContainer = _make_overlay_panel(dim, 640)
 	var vbox: VBoxContainer = _make_overlay_vbox(panel, 14)
 
 	var header: Label = Label.new()
@@ -1230,27 +1255,27 @@ func _show_name_picker() -> void:
 	]
 
 	var kbd_vbox := VBoxContainer.new()
-	kbd_vbox.add_theme_constant_override("separation", 5)
+	kbd_vbox.add_theme_constant_override("separation", 8)
 	vbox.add_child(kbd_vbox)
 
 	for row_chars in KEY_ROWS:
 		var row_hbox := HBoxContainer.new()
 		row_hbox.alignment = BoxContainer.ALIGNMENT_CENTER
-		row_hbox.add_theme_constant_override("separation", 5)
+		row_hbox.add_theme_constant_override("separation", 8)
 		row_hbox.size_flags_horizontal = Control.SIZE_EXPAND_FILL
 		kbd_vbox.add_child(row_hbox)
 
 		for ch in row_chars:
 			var btn := Button.new()
 			btn.focus_mode = Control.FOCUS_NONE
-			btn.add_theme_font_size_override("font_size", 15)
+			btn.add_theme_font_size_override("font_size", 18)
 
 			var is_fn:  bool = ch == "DEL" or ch == "OK"
 			var is_num: bool = ch.is_valid_int()
 			var is_spc: bool = ch == " "
 
 			# Key height is uniform; width expands to fill row
-			btn.custom_minimum_size = Vector2(0, 46)
+			btn.custom_minimum_size = Vector2(0, 58)
 			btn.size_flags_horizontal = Control.SIZE_EXPAND_FILL
 
 			if is_fn:
@@ -1269,7 +1294,7 @@ func _show_name_picker() -> void:
 				sb_p.content_margin_top = 5
 				btn.add_theme_stylebox_override("pressed", sb_p)
 				btn.text = "⌫" if ch == "DEL" else ch
-				btn.add_theme_font_size_override("font_size", 16)
+				btn.add_theme_font_size_override("font_size", 18)
 				if ch == "OK":
 					btn.add_theme_font_override("font", _make_font(700))
 					btn.disabled = true
@@ -1539,7 +1564,8 @@ func _fmt_time(secs: float) -> String:
 	var s: int = int(secs)
 	if s < 60:
 		return "%ds" % s
-	return "%dm%02ds" % [s / 60 as int, s % 60]
+	var mins: int = s / 60
+	return "%dm%02ds" % [mins, s % 60]
 
 # ── Settings overlay (#14, #18) ────────────────────────────────────────────
 func _on_settings() -> void:

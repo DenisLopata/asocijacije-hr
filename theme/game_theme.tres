@@ -4,7 +4,7 @@
 
 [sub_resource type="FontVariation" id="FV_Default"]
 base_font = ExtResource("Font_Outfit")
-variation_opentype = {"wght": 600.0}
+variation_opentype = {"wght": 700.0}
 
 [sub_resource type="FontVariation" id="FV_700"]
 base_font = ExtResource("Font_Outfit")
@@ -294,13 +294,13 @@ TitleLabel/fonts/font           = SubResource("FV_700")
 SolvedCategoryLabel/fonts/font  = SubResource("FV_700")
 
 SubtitleLabel/colors/font_color    = Color(0.55, 0.56, 0.62, 1)
-SubtitleLabel/font_sizes/font_size = 17
+SubtitleLabel/font_sizes/font_size = 18
 
 MetaLabel/colors/font_color    = Color(0.55, 0.56, 0.62, 1)
-MetaLabel/font_sizes/font_size = 16
+MetaLabel/font_sizes/font_size = 17
 
 ScoreLabel/colors/font_color    = Color(0.45, 0.55, 1.0, 1)
-ScoreLabel/font_sizes/font_size = 16
+ScoreLabel/font_sizes/font_size = 17
 
 FeedbackLabel/colors/font_color    = Color(0.96, 0.96, 0.98, 1)
 FeedbackLabel/font_sizes/font_size = 18
