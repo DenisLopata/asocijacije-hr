@@ -150,21 +150,22 @@ Two patterns, applied consistently:
 
 Never mix patterns. `"Mogu se otvoriti"` not `"Može se 'otvoriti'"`. `"Završavaju na -ač"` not `"Završavaju na '-ač'"`.
 
-### Pool inventory (v2)
+### Pool inventory
 
 | Tier | Rank 1 | Rank 2 | Rank 3 | Total |
 |------|--------|--------|--------|-------|
-| YELLOW | 20 | 20 | 9 | 49 |
-| GREEN | 13 | 27 | 19 | 59 |
-| BLUE | 9 | 28 | 32 | 69 |
-| PURPLE | 12 | 15 | 36 | 63 |
-| **Total** | **54** | **90** | **96** | **240** |
+| YELLOW | 20 | 20 | 14 | 54 |
+| GREEN | 20 | 27 | 27 | 74 |
+| BLUE | 18 | 28 | 44 | 90 |
+| PURPLE | 17 | 20 | 43 | 80 |
+| **Total** | **75** | **95** | **128** | **298** |
 
 ### Generation
 
 - `PuzzleData.get_puzzles()` — generates 5 puzzles using weighted rank selection, seeded by current RNG state. Weights escalate: puzzle 1 = `[75,20,5]` (rank-1 heavy), puzzle 5 = `[5,20,75]` (rank-3 heavy).
-- `PuzzleData.get_single_puzzle()` — generates 1 puzzle with balanced weights `[30,40,30]`. Used for Dnevni izazov.
-- `_is_frazem_template(name)` — returns true if category name contains `"___"`. Used to enforce **max 1 frazem-template category per puzzle** (prevents BLUE r3 overload where 9+ `"X ___"` patterns could all appear in one puzzle). If a second template lands, `_pick_non_template_or_fallback()` swaps it for a non-template from the same pool, or accepts the template as a last resort.
+- `PuzzleData.get_single_puzzle(yesterday_seed)` — generates 1 puzzle with balanced weights `[25,45,30]`. Used for Dnevni izazov. Accepts yesterday's YYYYMMDD seed to exclude yesterday's 4 categories.
+- `_get_frazem_subtype(name)` — classifies a category name into a frazem subtype: `"simile"` (`" kao ___"`), `"hidden_connector"` (`"Mogu prethoditi:"` / `"Mogu slijediti:"`), `"prepositional"` (`" + ___"`), `"prefix_adj"` (ends with `" ___"`), `"suffix_noun"` (starts with `"___ "`), or `""` (not a frazem). Used to enforce **max 1 per subtype per puzzle** — two different subtypes can coexist, two of the same cannot. `_frazem_ok(name, used_subtypes)` checks this. `_try_swap()` replaces a violating entry with a valid one, also enforcing the adjacent-day exclusion set.
+- `get_single_puzzle(yesterday_seed)` — accepts yesterday's date seed (YYYYMMDD int) to exclude yesterday's 4 categories from today's draw. `_names_for_seed()` simulates yesterday's picks using a local RNG that does not disturb the global RNG state.
 
 ## SaveManager
 
@@ -202,6 +203,23 @@ Push to `main` triggers `.github/workflows/deploy.yml`:
   - `was_submitted(mode, date_str) -> bool` / `mark_submitted(...)` — dedup guard in prefs
   - `get_last_error() -> String` — `"auth_failed"` or `"network_error"` after a failed submit
 - **Known limitation:** no server-side score validation — a client can POST arbitrary values. Accepted risk for now.
+
+## Pool validator
+
+`scripts/dev_pool_validator.gd` — headless GDScript validator for the full category pool. Run it after any edit to `puzzle_data.gd`:
+
+```
+godot --headless --script scripts/dev_pool_validator.gd
+```
+
+Checks performed:
+1. **Global word uniqueness** — detects words that appear in more than one category across the entire pool (would cause runtime conflicts).
+2. **Category structure** — each entry must have exactly 4 words, no internal duplicates, rank in `[1, 2, 3]`.
+3. **Frazem subtype distribution** — counts simile / hidden_connector / prepositional / prefix_adj / suffix_noun per tier+rank bucket.
+4. **Bucket sizes** — warns if any `(tier, rank)` bucket has < 10 categories; errors if < 5 (critically small → high repetition).
+5. **Naming conventions** — flags legacy patterns (`"Ide uz"`, `"Sve ima"`).
+
+Exit code 0 = no errors; exit code 1 = at least one error. Run this before committing any puzzle data change.
 
 ## Known pitfalls
 

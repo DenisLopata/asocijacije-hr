@@ -230,7 +230,9 @@ func _ready() -> void:
 		var daily_seed: int = get_tree().get_meta("daily_seed")
 		get_tree().remove_meta("daily_seed")
 		seed(daily_seed)
-		_puzzles = [PuzzleData.get_single_puzzle()]
+		var _yd := Time.get_date_dict_from_unix_time(Time.get_unix_time_from_system() - 86400.0)
+		var yesterday_seed: int = _yd.year * 10000 + _yd.month * 100 + _yd.day
+		_puzzles = [PuzzleData.get_single_puzzle(yesterday_seed)]
 		_build_ui()
 		_load_puzzle(_current_puzzle_index)
 	elif get_tree().has_meta("five_seed"):
@@ -593,10 +595,11 @@ func _load_puzzle(index: int) -> void:
 	_rebuild_grid()
 
 func _difficulty_badge(puzzle: PuzzleData.Puzzle) -> String:
-	var total: float = 0.0
+	var rank_sum: int = 0
 	for cat in puzzle.categories:
-		total += float(cat.difficulty) + (cat.rank - 1) * 0.5
-	var stars: int = clampi(roundi(total / 4.0) + 1, 1, 5)
+		rank_sum += cat.rank
+	# rank_sum ranges 4 (all r1) to 12 (all r3) → map to 1–5 stars
+	var stars: int = clampi(roundi((rank_sum - 4) / 2.0) + 1, 1, 5)
 	var s := _icon("star")
 	return s.repeat(stars)
 
