@@ -1466,8 +1466,11 @@ func _show_submitting_overlay(player_name: String, score: int, time_sec: float,
 		_show_leaderboard_overlay(mode, date_str, FirebaseClient.get_uid(), score, time_sec)
 		return
 
-	# Submission failed — show error with retry
-	lbl.text = "Nema internetske veze." if FirebaseClient.get_last_error() == "auth_failed" else "Slanje nije uspjelo."
+	# Submission failed — show friendly message with retry / skip
+	var err := FirebaseClient.get_last_error()
+	var no_conn := err == "auth_failed" or err == "timeout"
+	lbl.text = "Nema internetske veze.\nRezultat nije pohranjen na ljestvicu." if no_conn \
+		else "Slanje nije uspjelo.\nRezultat nije pohranjen na ljestvicu."
 	lbl.add_theme_color_override("font_color", C_LOSE)
 
 	var retry_btn := _make_ghost_btn("Pokušaj ponovo")
@@ -1477,7 +1480,7 @@ func _show_submitting_overlay(player_name: String, score: int, time_sec: float,
 		_show_submitting_overlay(player_name, score, time_sec, mode, date_str, puzzle_seed))
 	vbox.add_child(retry_btn)
 
-	var skip_btn := _make_ghost_btn("Odustani")
+	var skip_btn := _make_ghost_btn("Nastavi bez ljestvice")
 	skip_btn.size_flags_horizontal = Control.SIZE_SHRINK_CENTER
 	skip_btn.pressed.connect(func() -> void:
 		_close_overlay()
@@ -1532,7 +1535,9 @@ func _show_leaderboard_overlay(mode: String, date_str: String, my_uid: String, m
 
 	if entries.is_empty():
 		var empty_lbl := Label.new()
-		empty_lbl.text = "Nema rezultata."
+		var fetch_err := FirebaseClient.get_last_fetch_error()
+		empty_lbl.text = "Ljestvica nije dostupna\nbez internetske veze." if fetch_err != "" \
+			else "Nema rezultata."
 		empty_lbl.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
 		empty_lbl.add_theme_color_override("font_color", C_TEXT_DIM)
 		vbox.add_child(empty_lbl)

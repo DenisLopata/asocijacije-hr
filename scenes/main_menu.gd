@@ -723,7 +723,9 @@ func _show_leaderboard_overlay_menu(mode: String, date_str: String) -> void:
 
 	if entries.is_empty():
 		var empty_lbl := Label.new()
-		empty_lbl.text = "Nema rezultata."
+		var fetch_err := FirebaseClient.get_last_fetch_error()
+		empty_lbl.text = "Ljestvica nije dostupna\nbez internetske veze." if fetch_err != "" \
+			else "Nema rezultata."
 		empty_lbl.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
 		empty_lbl.add_theme_color_override("font_color", C_TEXT_DIM)
 		vbox.add_child(empty_lbl)
