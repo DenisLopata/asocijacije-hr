@@ -49,28 +49,32 @@ Three modes, all accessible from the main menu:
 
 - Linear puzzle order — no skipping.
 - Per-puzzle timer starts on `_load_puzzle`, elapsed recorded in `_on_game_won` / `_on_game_lost`.
-- Mid-session progress saved to `save.cfg` (except daily modes which never write to save).
-- After the last puzzle: summary overlay → name picker → `_on_name_confirmed` → save result → for daily modes: submitting overlay → leaderboard overlay → menu; for Nova igra: directly to menu.
-- Name picker: Croatian alphabet + digits + hyphen + space, 4–10 characters, OK disabled until 4 chars entered.
+- Mid-session progress saved to `save.cfg` for Dnevnih 5 and Nova igra (Dnevni izazov never writes to save — single puzzle, no resume needed).
+- Dnevnih 5 session save includes `puzzle_times`, `puzzle_scores`, and `puzzle_start_time` so resume continues from the correct puzzle with correct accumulated totals.
+- **Daily result is saved on the last puzzle's summary screen** (`_show_summary`), not on name submission — the day is locked in whether or not the player submits to the leaderboard.
+- After the last puzzle: summary overlay (daily result saved here) → name picker → optional leaderboard submit → menu.
+- Name picker: Croatian alphabet + digits + hyphen + space, 4–10 characters, OK disabled until 4 chars entered. Daily modes also show a **"Preskoči ljestvicu"** button to go straight to menu without submitting.
 - `_puzzle_times: Array[float]` and `_puzzle_scores: Array[int]` accumulate across puzzles in a session.
 
 ### Overlays in game_screen.gd
 
-`game_screen.gd` (~1880 lines) contains all game UI including several full-screen overlays:
+`game_screen.gd` (~1960 lines) contains all game UI including several full-screen overlays:
 
-- **Summary overlay** (`_show_summary`) — per-puzzle stats, total score/time, colour-coded guess history grid (visual record of all guesses by difficulty colour).
-- **Name picker overlay** (`_show_name_picker`) — on-screen keyboard with Croatian alphabet (A–Ž) + digits + hyphen + space; 4–10 chars; OK button disabled until 4 chars entered.
-- **Submitting overlay** (`_show_submitting_overlay`) — spinner shown while Firebase write is in flight; transitions to leaderboard on success or shows error on failure.
+- **Summary overlay** (`_show_summary`) — per-puzzle stats, total score/time, colour-coded guess history grid. On the last puzzle, saves daily result and clears session save immediately. Nav row and action buttons are hidden while summary is visible to prevent mid-summary navigation corrupting scores.
+- **Name picker overlay** (`_show_name_picker`) — on-screen keyboard with Croatian alphabet (A–Ž) + digits + hyphen + space; 4–10 chars; OK disabled until 4 chars entered. Daily modes include a "Preskoči ljestvicu" secondary button.
+- **Submitting overlay** (`_show_submitting_overlay`) — spinner shown while Firebase write is in flight; transitions to leaderboard on success or shows error with retry/skip options.
 - **Leaderboard overlay** (`_show_leaderboard_overlay`) — top 20 scores from Firestore; current player row highlighted; rank coloured by position.
 - **Settings overlay** (`_show_settings_overlay`) — font size picker (14/18/22 px), session clear. Persisted via `SaveManager.save_prefs(tile_font_size)`.
 
 ### Other game_screen.gd features
 
+- **Button layout** — Potvrdi (submit) is full-width on top; Pomiješaj, Poništi, and Hint share a secondary row below. Novi set only appears in Nova igra (not in daily modes).
 - **Hint button** — label reads `"Hint (%d)"` with remaining hint count; uses `HintButton` theme variation.
 - **One-away feedback** — when a guess misses by one word, the outlier word pulses amber; separate feedback message shown.
 - **Confetti** — `CPUParticles2D` burst on win, colours drawn from all four difficulty tiers.
 - **Background shader** — animated aurora/gradient shader, same as main_menu.gd.
 - **Puzzle counter prefix** — `"Dnevni  "` for Dnevni izazov, `"Dnevnih 5  "` for Dnevnih 5, `"Slagalica "` for Nova igra.
+- **Stars and timer** — difficulty stars (`_puzzle_stars`) and timer (`_timer_label`) are hidden during the summary screen and restored when the next puzzle loads.
 
 ## Debug shortcuts
 
@@ -229,7 +233,7 @@ Exit code 0 = no errors; exit code 1 = at least one error. Run this before commi
 - **Scale pivot:** Always set `pivot_offset = size / 2.0` before a scale tween. Godot's default pivot is top-left.
 - **Web export index.png:** Godot generates this from the project icon, not the boot splash. The CI pipeline patches it manually — do not remove that step.
 - **COOP/COEP headers:** Required for SharedArrayBuffer (Godot threads). Firebase `firebase.json` sets these. Without them the game won't load.
-- **Daily mode never saves session:** `_is_daily` and `_is_five_daily` both skip `SaveManager.save_session` calls. The "Nastavi" button on the menu only appears for Nova igra in-progress sessions.
+- **Session save scope:** `_is_daily` (Dnevni izazov) never saves session — single puzzle, no resume needed. `_is_five_daily` (Dnevnih 5) DOES save session after each correct guess, wrong guess, and hint solve, including `puzzle_times`, `puzzle_scores`, and `puzzle_start_time`. The "Nastavi Dnevnih 5" button on the menu appears when a Dnevnih 5 session is in progress. Nova igra session save is planned but not yet active ("Beskraj" placeholder).
 - **Puzzle data word conflicts:** Words must be globally unique across the entire pool, not just within a puzzle. The `_assert_no_word_overlap` debug check only fires per-puzzle at runtime — it won't catch a word appearing in two different pool categories. When adding categories, manually verify new words don't appear elsewhere in the pool.
 - **Frazem-template extras:** Never add an extra hint to a frazem-template category (`"___"` in name) or a `"Mogu se / Imaju"` category — the name is self-explanatory and the hint would give away the answer. Only add extras for hidden-element or non-obvious mechanic categories (e.g. `"Skrivena životinja"`, `"Turcizmi"`, `"Otok = grad"`).
 - **Shaders must be inline strings:** Do NOT use `preload("res://shaders/*.gdshader")` — Godot's headless web export does not include standalone `.gdshader` files in the `.pck` without a full editor-generated import cache, which CI does not have. All shaders live as `const _SHADER_*_SRC := "..."` string constants in `game_screen.gd`, applied via `Shader.new(); shader.code = _SHADER_*_SRC`. The `.gdshader` files in `shaders/` are kept as readable source references only.
