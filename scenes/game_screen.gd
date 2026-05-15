@@ -1863,18 +1863,21 @@ func _on_score_changed(total: int, gained: int) -> void:
 func _on_hint() -> void:
 	_state.use_hint()
 
+func _hint_word(n: int) -> String:
+	return "%d hint" % n if n == 1 else "%d hinta" % n
+
 func _on_hint_peek(category_name: String, hints_left: int) -> void:
-	_show_typed_feedback(FeedbackType.HINT, "Jedna kategorija je: \"%s\"  —  još %d hint" % [category_name, hints_left])
+	_show_typed_feedback(FeedbackType.HINT, "Jedna kategorija je: \"%s\"  —  još %s" % [category_name, _hint_word(hints_left)])
 	_update_hint_btn()
 
 func _on_hint_word(category_name: String, word: String, hints_left: int) -> void:
-	_show_typed_feedback(FeedbackType.HINT, "Riječ \"%s\" pripada kategoriji \"%s\"  —  još %d hint" % [word, category_name, hints_left])
+	_show_typed_feedback(FeedbackType.HINT, "Riječ \"%s\" pripada kategoriji \"%s\"  —  još %s" % [word, category_name, _hint_word(hints_left)])
 	_update_hint_btn()
 
 func _on_hint_solve(category: PuzzleData.Category, hints_left: int) -> void:
 	var msg: String = "💡  Riješena kategorija: \"%s\"" % category.name
 	if hints_left > 0:
-		msg += "  —  još %d hint" % hints_left
+		msg += "  —  još %s" % _hint_word(hints_left)
 	_show_typed_feedback(FeedbackType.HINT, msg)
 	_update_hint_btn()
 	_add_solved_row_animated(category)

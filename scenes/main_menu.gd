@@ -410,7 +410,7 @@ func _make_menu_btn(label: String, subtitle: String, style: String) -> Button:
 	return btn
 
 func _done_btn(label: String, result: Dictionary, mode: String, date_str: String, streak: int = 0) -> Dictionary:
-	var sub := "%s  %d bod  •  %s  %s  •  %s ljestvica" % [_icon("done"), result["score"], _icon("timer"), _fmt_time(result["time"]), _icon("leaderboard")]
+	var sub := "%s  %d bodova  •  %s  %s  •  %s ljestvica" % [_icon("done"), result["score"], _icon("timer"), _fmt_time(result["time"]), _icon("leaderboard")]
 	if streak >= 2:
 		sub += "  •  %s %d" % [_icon("local_fire"), streak]
 	return {
