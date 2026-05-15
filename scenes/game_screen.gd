@@ -78,9 +78,62 @@ const SPARKLE_INTENSITY: Dictionary = {
 	PuzzleData.Difficulty.PURPLE: 0.14,
 }
 
-const _SHADER_BG       : Shader = preload("res://shaders/background.gdshader")
-const _SHADER_VIGNETTE : Shader = preload("res://shaders/vignette.gdshader")
-const _SHADER_SHIMMER  : Shader = preload("res://shaders/shimmer.gdshader")
+const _SHADER_BG_SRC := "
+shader_type canvas_item;
+void fragment() {
+	vec2 uv = UV;
+	float t = TIME * 0.05;
+	vec3 base = mix(vec3(0.08, 0.09, 0.14), vec3(0.04, 0.04, 0.08), uv.y);
+	vec2 p1 = vec2(0.20 + sin(t * 0.71) * 0.10, 0.18 + cos(t * 0.53) * 0.08);
+	vec2 p2 = vec2(0.78 + cos(t * 0.67) * 0.09, 0.52 + sin(t * 0.41) * 0.13);
+	vec2 p3 = vec2(0.48 + sin(t * 0.37) * 0.07, 0.82 + cos(t * 0.29) * 0.05);
+	float b1 = smoothstep(0.50, 0.0, length(uv - p1));
+	float b2 = smoothstep(0.45, 0.0, length(uv - p2));
+	float b3 = smoothstep(0.38, 0.0, length(uv - p3));
+	vec3 col = base;
+	col += vec3(0.10, 0.05, 0.25) * b1 * 0.20;
+	col += vec3(0.03, 0.10, 0.24) * b2 * 0.16;
+	col += vec3(0.15, 0.04, 0.18) * b3 * 0.14;
+	COLOR = vec4(col, 1.0);
+}
+"
+const _SHADER_VIGNETTE_SRC := "
+shader_type canvas_item;
+void fragment() {
+	vec2 uv = UV * 2.0 - 1.0;
+	float v = dot(uv, uv);
+	float alpha = smoothstep(0.4, 1.6, v) * 0.50;
+	COLOR = vec4(0.0, 0.0, 0.0, alpha);
+}
+"
+const _SHADER_SHIMMER_SRC := "
+shader_type canvas_item;
+uniform float spawn_time        = 0.0;
+uniform float sparkle_intensity = 0.0;
+void fragment() {
+	float age = TIME - spawn_time;
+	float diag       = UV.x * 0.65 + UV.y * 0.35;
+	float sweep_dist = diag - age / 1.0;
+	float sweep      = exp(-sweep_dist * sweep_dist * 28.0)
+	                 * smoothstep(1.0, 0.3, age) * 0.18;
+	float glow = (sin(TIME * 0.7 + 1.2) * 0.5 + 0.5) * 0.022;
+	float sparks = 0.0;
+	if (sparkle_intensity > 0.001) {
+		for (int i = 0; i < 8; i++) {
+			float fi    = float(i);
+			float speed = 1.2 + fi * 0.4;
+			float px    = fract(sin(fi * 127.1 + 43.2) * 4375.5);
+			float py    = fract(sin(fi * 311.7 + 12.8) * 5765.1);
+			float life  = sin(fract(TIME * speed + fi * 0.618) * 3.14159);
+			float dx    = UV.x - px;
+			float dy    = UV.y - py;
+			sparks += exp(-(dx*dx + dy*dy) * 4500.0) * life * life * life;
+		}
+		sparks *= sparkle_intensity * 0.35;
+	}
+	COLOR.rgb += sweep + glow + sparks;
+}
+"
 
 # ── State ──────────────────────────────────────────────────────────────────
 var _state: GameState
@@ -315,7 +368,8 @@ func _add_bg() -> void:
 	var bg: ColorRect = ColorRect.new()
 	bg.set_anchors_and_offsets_preset(Control.PRESET_FULL_RECT)
 	var bg_mat := ShaderMaterial.new()
-	bg_mat.shader = _SHADER_BG
+	var bg_shader := Shader.new(); bg_shader.code = _SHADER_BG_SRC
+	bg_mat.shader = bg_shader
 	bg.material = bg_mat
 	add_child(bg)
 
@@ -324,7 +378,8 @@ func _add_bg() -> void:
 	vignette.set_anchors_and_offsets_preset(Control.PRESET_FULL_RECT)
 	vignette.mouse_filter = Control.MOUSE_FILTER_IGNORE
 	var vignette_mat := ShaderMaterial.new()
-	vignette_mat.shader = _SHADER_VIGNETTE
+	var vignette_shader := Shader.new(); vignette_shader.code = _SHADER_VIGNETTE_SRC
+	vignette_mat.shader = vignette_shader
 	vignette.material = vignette_mat
 	add_child(vignette)
 
@@ -1047,7 +1102,8 @@ func _add_solved_row(category: PuzzleData.Category) -> void:
 
 	# Shimmer applied to the panel itself so it covers the full background
 	var smat := ShaderMaterial.new()
-	smat.shader = _SHADER_SHIMMER
+	var shimmer_shader := Shader.new(); shimmer_shader.code = _SHADER_SHIMMER_SRC
+	smat.shader = shimmer_shader
 	smat.set_shader_parameter("spawn_time", Time.get_ticks_msec() / 1000.0)
 	smat.set_shader_parameter("sparkle_intensity", SPARKLE_INTENSITY[category.difficulty])
 	row.material = smat
