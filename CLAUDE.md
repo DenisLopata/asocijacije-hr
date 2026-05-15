@@ -11,7 +11,7 @@ scenes/
   main_menu.gd       — Main menu, stagger-in animations, settings overlay
   game_screen.gd     — All game logic and UI, the main file
 scripts/
-  puzzle_data.gd     — All puzzle content + difficulty colours
+  puzzle_data.gd     — Puzzle pool (240 categories) + generation logic + difficulty colours
   game_state.gd      — Turn-by-turn state machine (selection, validation, scoring)
   save_manager.gd    — Persistent progress via ConfigFile
 assets/
@@ -116,25 +116,55 @@ Registered type variations (defined in `game_theme.tres`, applied in game_screen
 
 ## Puzzle data format
 
+Categories live in four static pool functions — `_yellow_pool()`, `_green_pool()`, `_blue_pool()`, `_purple_pool()`. Each entry is a plain Array:
+
 ```gdscript
-{
-  "categories": [
-    {
-      "name": "Category name",
-      "words": ["WORD1", "WORD2", "WORD3", "WORD4"],
-      "difficulty": PuzzleData.Difficulty.YELLOW,  # YELLOW GREEN BLUE PURPLE
-      "rank": 0,        # 1-3, difficulty within tier
-      "extra": ""       # Optional hint shown in solved row
-    },
-    # ... 3 more categories
-  ]
-}
+["Category name", ["word1", "word2", "word3", "word4"], rank]
+# rank: 1 = easiest within tier, 2 = mid, 3 = hardest/wordplay
 ```
 
-Words are stored lowercase in data, displayed `.to_upper()` in UI.
+Words are stored lowercase, displayed `.to_upper()` in UI. The runtime builds `PuzzleData.Category` objects from these arrays:
 
-- `PuzzleData.get_puzzles()` — generates 5 puzzles using weighted rank selection, seeded by current RNG state.
-- `PuzzleData.get_single_puzzle()` — generates 1 puzzle with balanced weights (30/40/30). Used for Dnevni izazov.
+```
+name       — shown to player after a correct guess
+words      — Array[String], exactly 4
+difficulty — Difficulty enum (YELLOW / GREEN / BLUE / PURPLE)
+rank       — int 1–3 (difficulty within tier)
+extra      — String, optional hint shown in the solved row
+```
+
+Extra hints are NOT stored inline — they live in `_category_extras() -> Dictionary` keyed by category name. Only add an extra when the mechanic is non-obvious from the name alone. Frazem-template categories (`"X ___"`, `"___ X"`) and `"Mogu se / Imaju"` categories never get extras.
+
+### Naming convention (v2)
+
+Two patterns, applied consistently:
+
+**Frazem-template** — fixed part + variable slot, always use `___`:
+- `"Crna ___"`, `"Zlatna ___"`, `"___ rat"`, `"Brz kao ___"`, `"Slobodni/a ___"` etc.
+- Gender agreement written into the name: `"Mrtvi/a/o ___"`, `"Duboki/a/o ___"`
+
+**Descriptive** — property, mechanism, or category:
+- `"Završavaju na -ač"`, `"Počinju s 'pre-'"`, `"Suprotno s prefiksom 'ne-'"`
+- `"Skrivena životinja"`, `"Krije se broj"`, `"Imaju 'nos'"`
+- `"Hrvatska mjesta"`, `"Ime i biljka"`, `"Tri ili više značenja"`
+
+Never mix patterns. `"Mogu se otvoriti"` not `"Može se 'otvoriti'"`. `"Završavaju na -ač"` not `"Završavaju na '-ač'"`.
+
+### Pool inventory (v2)
+
+| Tier | Rank 1 | Rank 2 | Rank 3 | Total |
+|------|--------|--------|--------|-------|
+| YELLOW | 20 | 20 | 9 | 49 |
+| GREEN | 13 | 27 | 19 | 59 |
+| BLUE | 9 | 28 | 32 | 69 |
+| PURPLE | 12 | 15 | 36 | 63 |
+| **Total** | **54** | **90** | **96** | **240** |
+
+### Generation
+
+- `PuzzleData.get_puzzles()` — generates 5 puzzles using weighted rank selection, seeded by current RNG state. Weights escalate: puzzle 1 = `[75,20,5]` (rank-1 heavy), puzzle 5 = `[5,20,75]` (rank-3 heavy).
+- `PuzzleData.get_single_puzzle()` — generates 1 puzzle with balanced weights `[30,40,30]`. Used for Dnevni izazov.
+- `_is_frazem_template(name)` — returns true if category name contains `"___"`. Used to enforce **max 1 frazem-template category per puzzle** (prevents BLUE r3 overload where 9+ `"X ___"` patterns could all appear in one puzzle). If a second template lands, `_pick_non_template_or_fallback()` swaps it for a non-template from the same pool, or accepts the template as a last resort.
 
 ## SaveManager
 
@@ -182,3 +212,5 @@ Push to `main` triggers `.github/workflows/deploy.yml`:
 - **Web export index.png:** Godot generates this from the project icon, not the boot splash. The CI pipeline patches it manually — do not remove that step.
 - **COOP/COEP headers:** Required for SharedArrayBuffer (Godot threads). Firebase `firebase.json` sets these. Without them the game won't load.
 - **Daily mode never saves session:** `_is_daily` and `_is_five_daily` both skip `SaveManager.save_session` calls. The "Nastavi" button on the menu only appears for Nova igra in-progress sessions.
+- **Puzzle data word conflicts:** Words must be globally unique across the entire pool, not just within a puzzle. The `_assert_no_word_overlap` debug check only fires per-puzzle at runtime — it won't catch a word appearing in two different pool categories. When adding categories, manually verify new words don't appear elsewhere in the pool.
+- **Frazem-template extras:** Never add an extra hint to a frazem-template category (`"___"` in name) or a `"Mogu se / Imaju"` category — the name is self-explanatory and the hint would give away the answer. Only add extras for hidden-element or non-obvious mechanic categories (e.g. `"Skrivena životinja"`, `"Turcizmi"`, `"Otok = grad"`).

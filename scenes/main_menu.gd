@@ -18,7 +18,7 @@ const C_WIN        := Color(0.30, 0.85, 0.55)
 const C_SUBMIT_ON  := Color(0.28, 0.60, 0.42)
 const C_BTN_PRIMARY := Color(0.28, 0.35, 0.65)
 const C_BTN_DAILY   := Color(0.50, 0.32, 0.68)
-const C_BTN_FIVE    := Color(0.18, 0.52, 0.58)
+const C_BTN_FIVE    := Color(0.10, 0.32, 0.38)
 const C_BTN_DONE    := Color(0.18, 0.20, 0.26)
 
 const RADIUS_BTN      : int = 22
@@ -194,7 +194,7 @@ func _build_logo(parent: VBoxContainer) -> void:
 	title.text = "ASOCIJACIJE"
 	title.theme_type_variation = "TitleLabel"
 	title.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
-	title.add_theme_font_size_override("font_size", 52)
+	title.add_theme_font_size_override("font_size", 60)
 	title.add_theme_font_override("font", _make_font(800))
 	parent.add_child(title)
 
@@ -255,7 +255,7 @@ func _build_buttons(parent: VBoxContainer) -> void:
 				"style":  "five",
 				"action": func() -> void: _go_to_five(five_seed, false),
 			})
-		var five_sub := "%s  Pet slagalica  •  %s" % [_icon("quiz"), date_label]
+		var five_sub := "%s  Pet slagalica, jedna teža od druge  •  %s" % [_icon("quiz"), date_label]
 		if five_streak >= 2:
 			five_sub += "  •  %s %d" % [_icon("local_fire"), five_streak]
 		btns.append({
@@ -375,7 +375,7 @@ func _make_menu_btn(label: String, subtitle: String, style: String) -> Button:
 		main_lbl.text = label
 		main_lbl.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
 		main_lbl.add_theme_font_override("font", _make_font(700))
-		main_lbl.add_theme_font_size_override("font_size", 18)
+		main_lbl.add_theme_font_size_override("font_size", 22)
 		main_lbl.mouse_filter = Control.MOUSE_FILTER_IGNORE
 		vbox.add_child(main_lbl)
 
@@ -383,7 +383,7 @@ func _make_menu_btn(label: String, subtitle: String, style: String) -> Button:
 		sub_lbl.text = subtitle
 		sub_lbl.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
 		sub_lbl.add_theme_font_override("font", _mixed_font(400))
-		sub_lbl.add_theme_font_size_override("font_size", 15)
+		sub_lbl.add_theme_font_size_override("font_size", 17)
 		sub_lbl.add_theme_color_override("font_color", C_TEXT.darkened(0.15))
 		sub_lbl.mouse_filter = Control.MOUSE_FILTER_IGNORE
 		vbox.add_child(sub_lbl)
@@ -393,7 +393,7 @@ func _make_menu_btn(label: String, subtitle: String, style: String) -> Button:
 	else:
 		btn.text = label
 		btn.add_theme_font_override("font", _make_font(700))
-		btn.add_theme_font_size_override("font_size", 18)
+		btn.add_theme_font_size_override("font_size", 22)
 
 	# Micro-bounce
 	btn.button_down.connect(func() -> void:
@@ -603,13 +603,41 @@ func _fmt_time(secs: float) -> String:
 	var s: int = int(secs)
 	if s < 60:
 		return "%ds" % s
-	var mins: int = s / 60
+	var mins: int = floori(s / 60.0)
 	return "%dm%02ds" % [mins, s % 60]
 
 func _make_leaderboard_row_menu(rank: int, entry: Dictionary, is_me: bool, odd: bool = false) -> Control:
-	var row := HBoxContainer.new()
-	row.add_theme_constant_override("separation", 8)
+	var wrapper := PanelContainer.new()
+	wrapper.size_flags_horizontal = Control.SIZE_EXPAND_FILL
+	if is_me:
+		var hl := _rounded_box(C_ACCENT.darkened(0.30), 8)
+		hl.border_width_left   = 2
+		hl.border_width_right  = 2
+		hl.border_width_top    = 2
+		hl.border_width_bottom = 2
+		hl.border_color = C_ACCENT
+		wrapper.add_theme_stylebox_override("panel", hl)
+	else:
+		var flat := StyleBoxFlat.new()
+		flat.bg_color = Color(1, 1, 1, 0.04 if odd else 0.0)
+		flat.corner_radius_top_left     = 6
+		flat.corner_radius_top_right    = 6
+		flat.corner_radius_bottom_left  = 6
+		flat.corner_radius_bottom_right = 6
+		flat.content_margin_left   = 8
+		flat.content_margin_right  = 8
+		flat.content_margin_top    = 4
+		flat.content_margin_bottom = 4
+		wrapper.add_theme_stylebox_override("panel", flat)
 
+	var row := HBoxContainer.new()
+	row.add_theme_constant_override("separation", 10)
+	wrapper.add_child(row)
+
+	var rank_lbl := Label.new()
+	rank_lbl.text = "%d." % rank
+	rank_lbl.custom_minimum_size = Vector2(32, 0)
+	rank_lbl.add_theme_font_override("font", _make_font(700))
 	var rank_color: Color
 	if is_me:
 		rank_color = C_ACCENT
@@ -621,57 +649,28 @@ func _make_leaderboard_row_menu(rank: int, entry: Dictionary, is_me: bool, odd: 
 		rank_color = Color(0.80, 0.52, 0.25)
 	else:
 		rank_color = C_TEXT_DIM
-
-	var rank_lbl := Label.new()
-	rank_lbl.text = "%d." % rank
-	rank_lbl.custom_minimum_size = Vector2(28, 0)
-	rank_lbl.horizontal_alignment = HORIZONTAL_ALIGNMENT_RIGHT
-	rank_lbl.add_theme_font_override("font", _make_font(700))
 	rank_lbl.add_theme_color_override("font_color", rank_color)
 	row.add_child(rank_lbl)
 
 	var name_lbl := Label.new()
 	name_lbl.text = entry["name"]
 	name_lbl.size_flags_horizontal = Control.SIZE_EXPAND_FILL
-	name_lbl.clip_contents = true
-	name_lbl.add_theme_font_override("font", _make_font(600 if is_me else 400))
-	name_lbl.add_theme_color_override("font_color", C_ACCENT if is_me else C_TEXT)
+	name_lbl.add_theme_font_override("font", _make_font(700 if is_me else 500))
 	row.add_child(name_lbl)
 
 	var score_lbl := Label.new()
 	score_lbl.text = "%d" % entry["score"]
-	score_lbl.custom_minimum_size = Vector2(52, 0)
-	score_lbl.horizontal_alignment = HORIZONTAL_ALIGNMENT_RIGHT
-	score_lbl.add_theme_font_override("font", _make_font(600))
 	score_lbl.add_theme_color_override("font_color", C_WIN if is_me else C_TEXT)
 	row.add_child(score_lbl)
 
 	var time_lbl := Label.new()
 	time_lbl.text = _fmt_time(entry["time"])
-	time_lbl.custom_minimum_size = Vector2(58, 0)
-	time_lbl.horizontal_alignment = HORIZONTAL_ALIGNMENT_RIGHT
-	time_lbl.add_theme_font_override("font", _make_font(300))
+	time_lbl.add_theme_font_override("font", _make_font(500))
 	time_lbl.add_theme_color_override("font_color", C_TEXT_DIM)
 	time_lbl.add_theme_font_size_override("font_size", 13)
 	row.add_child(time_lbl)
 
-	var row_bg := PanelContainer.new()
-	var bg_color: Color
-	if is_me:
-		bg_color = C_ACCENT.darkened(0.72)
-	elif odd:
-		bg_color = Color(1, 1, 1, 0.03)
-	else:
-		bg_color = Color(0, 0, 0, 0)
-	var sb := _rounded_box(bg_color, 6)
-	sb.content_margin_left   = 6
-	sb.content_margin_right  = 6
-	sb.content_margin_top    = 3
-	sb.content_margin_bottom = 3
-	row_bg.add_theme_stylebox_override("panel", sb)
-	row_bg.size_flags_horizontal = Control.SIZE_EXPAND_FILL
-	row_bg.add_child(row)
-	return row_bg
+	return wrapper
 
 func _show_leaderboard_overlay_menu(mode: String, date_str: String) -> void:
 	if _overlay and is_instance_valid(_overlay):
@@ -680,7 +679,7 @@ func _show_leaderboard_overlay_menu(mode: String, date_str: String) -> void:
 	var dim := _make_dim()
 	_overlay = dim
 	_overlay_tag = "leaderboard"
-	var panel := _make_overlay_panel(dim, 420)
+	var panel := _make_overlay_panel(dim, 620)
 	var vbox  := _make_overlay_vbox(panel, 12)
 
 	var mode_label := "Dnevni izazov" if mode == "daily" else "Dnevnih 5"
@@ -699,8 +698,6 @@ func _show_leaderboard_overlay_menu(mode: String, date_str: String) -> void:
 	date_lbl.add_theme_color_override("font_color", C_TEXT_DIM)
 	date_lbl.add_theme_font_size_override("font_size", 14)
 	vbox.add_child(date_lbl)
-
-	_add_separator(vbox)
 
 	var loading_lbl := Label.new()
 	loading_lbl.text = "Učitavanje…"
@@ -731,45 +728,13 @@ func _show_leaderboard_overlay_menu(mode: String, date_str: String) -> void:
 		empty_lbl.add_theme_color_override("font_color", C_TEXT_DIM)
 		vbox.add_child(empty_lbl)
 	else:
-		# Column headers
-		var header_row := HBoxContainer.new()
-		header_row.add_theme_constant_override("separation", 8)
-		var _h_rank := Label.new(); _h_rank.text = "#"
-		_h_rank.custom_minimum_size = Vector2(28, 0)
-		_h_rank.horizontal_alignment = HORIZONTAL_ALIGNMENT_RIGHT
-		_h_rank.add_theme_font_override("font", _make_font(400))
-		_h_rank.add_theme_font_size_override("font_size", 12)
-		_h_rank.add_theme_color_override("font_color", C_TEXT_DIM)
-		header_row.add_child(_h_rank)
-		var _h_name := Label.new(); _h_name.text = "Igrač"
-		_h_name.size_flags_horizontal = Control.SIZE_EXPAND_FILL
-		_h_name.add_theme_font_override("font", _make_font(400))
-		_h_name.add_theme_font_size_override("font_size", 12)
-		_h_name.add_theme_color_override("font_color", C_TEXT_DIM)
-		header_row.add_child(_h_name)
-		var _h_score := Label.new(); _h_score.text = "Bod"
-		_h_score.custom_minimum_size = Vector2(52, 0)
-		_h_score.horizontal_alignment = HORIZONTAL_ALIGNMENT_RIGHT
-		_h_score.add_theme_font_override("font", _make_font(400))
-		_h_score.add_theme_font_size_override("font_size", 12)
-		_h_score.add_theme_color_override("font_color", C_TEXT_DIM)
-		header_row.add_child(_h_score)
-		var _h_time := Label.new(); _h_time.text = "Vrijeme"
-		_h_time.custom_minimum_size = Vector2(58, 0)
-		_h_time.horizontal_alignment = HORIZONTAL_ALIGNMENT_RIGHT
-		_h_time.add_theme_font_override("font", _make_font(400))
-		_h_time.add_theme_font_size_override("font_size", 12)
-		_h_time.add_theme_color_override("font_color", C_TEXT_DIM)
-		header_row.add_child(_h_time)
-		vbox.add_child(header_row)
-
 		var scroll := ScrollContainer.new()
-		scroll.custom_minimum_size = Vector2(0, 300)
+		scroll.custom_minimum_size = Vector2(0, 320)
 		scroll.horizontal_scroll_mode = ScrollContainer.SCROLL_MODE_DISABLED
 		vbox.add_child(scroll)
 
 		var list := VBoxContainer.new()
-		list.add_theme_constant_override("separation", 4)
+		list.add_theme_constant_override("separation", 6)
 		list.size_flags_horizontal = Control.SIZE_EXPAND_FILL
 		scroll.add_child(list)
 

@@ -91,9 +91,14 @@ static func has_save() -> bool:
 	return FileAccess.file_exists(SAVE_PATH)
 
 # ── Preferences (persist across sessions) ─────────────────────────────────
+static func _cfg_load(cfg: ConfigFile, path: String) -> void:
+	var err := cfg.load(path)
+	if err != OK and err != ERR_FILE_NOT_FOUND:
+		push_warning("SaveManager: unexpected load error %d for %s" % [err, path])
+
 static func save_prefs(tile_font_size: int, best_score: int = -1) -> void:
 	var cfg := ConfigFile.new()
-	cfg.load(PREFS_PATH)  # load existing so we don't wipe unrelated keys
+	_cfg_load(cfg, PREFS_PATH)
 	cfg.set_value("display", "tile_font_size", tile_font_size)
 	if best_score >= 0:
 		cfg.set_value("stats", "best_score", best_score)
@@ -101,7 +106,7 @@ static func save_prefs(tile_font_size: int, best_score: int = -1) -> void:
 
 static func save_best_score(score: int) -> void:
 	var cfg := ConfigFile.new()
-	cfg.load(PREFS_PATH)
+	_cfg_load(cfg, PREFS_PATH)
 	var current: int = cfg.get_value("stats", "best_score", 0)
 	if score > current:
 		cfg.set_value("stats", "best_score", score)
@@ -109,7 +114,7 @@ static func save_best_score(score: int) -> void:
 
 static func save_puzzle_start(timestamp: float) -> void:
 	var cfg := ConfigFile.new()
-	cfg.load(SAVE_PATH)  # load existing so we don't wipe other keys
+	_cfg_load(cfg, SAVE_PATH)
 	cfg.set_value("progress", "puzzle_start_time", timestamp)
 	cfg.save(SAVE_PATH)
 
@@ -133,7 +138,7 @@ static func load_five_result(date_str: String) -> Dictionary:
 
 static func _write_result(section: String, date_str: String, score: int, time_sec: float) -> void:
 	var cfg := ConfigFile.new()
-	cfg.load(PREFS_PATH)
+	_cfg_load(cfg, PREFS_PATH)
 	cfg.set_value(section, date_str + "_score", score)
 	cfg.set_value(section, date_str + "_time",  time_sec)
 	cfg.save(PREFS_PATH)
@@ -163,7 +168,7 @@ static func get_today() -> Dictionary:
 static func update_streak(date_str: String, mode: String = "daily") -> void:
 	var section := "streak_" + mode
 	var cfg := ConfigFile.new()
-	cfg.load(PREFS_PATH)
+	_cfg_load(cfg, PREFS_PATH)
 	var last: String = cfg.get_value(section, "last_date", "")
 	var count: int   = cfg.get_value(section, "count", 0)
 	if last == date_str:

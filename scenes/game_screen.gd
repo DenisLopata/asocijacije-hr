@@ -1,10 +1,10 @@
 extends Control
 
 # ── Animation timings (seconds) ────────────────────────────────────────────
-const ANIM_SWEEP        := 0.14
-const ANIM_FLASH        := 0.10
-const ANIM_SETTLE       := 0.10
-const ANIM_TILE_FADE    := 0.18
+const ANIM_SWEEP        := 0.12
+const ANIM_FLASH        := 0.085
+const ANIM_SETTLE       := 0.085
+const ANIM_TILE_FADE    := 0.15
 const ANIM_TILE_STAGGER := 0.06
 const ANIM_SHAKE        := 0.35
 const ANIM_DOT_POP      := 0.08
@@ -42,7 +42,7 @@ const C_WIN         := Color(0.30, 0.85, 0.55)
 const C_LOSE        := Color(0.90, 0.35, 0.35)
 const C_ONE_AWAY    := Color(0.95, 0.65, 0.20)
 
-const TILE_H      : int = 96
+const TILE_H      : int = 108
 const TILE_FONT   : int = 22
 const BTN_FONT    : int = 18
 const RADIUS_TILE : int = 14
@@ -78,79 +78,9 @@ const SPARKLE_INTENSITY: Dictionary = {
 	PuzzleData.Difficulty.PURPLE: 0.14,
 }
 
-const SHIMMER_SHADER := "
-shader_type canvas_item;
-
-uniform float spawn_time        = 0.0;
-uniform float sparkle_intensity = 0.0;
-
-void fragment() {
-	float age = TIME - spawn_time;
-
-	// One-shot diagonal sweep (first 1.0s)
-	float diag       = UV.x * 0.65 + UV.y * 0.35;
-	float sweep_dist = diag - age / 1.0;
-	float sweep      = exp(-sweep_dist * sweep_dist * 28.0)
-	                 * smoothstep(1.0, 0.3, age) * 0.18;
-
-	// Slow breathing (permanent)
-	float glow = (sin(TIME * 0.7 + 1.2) * 0.5 + 0.5) * 0.022;
-
-	// Star twinkles — tight gaussian + fast sharp flicker
-	float sparks = 0.0;
-	if (sparkle_intensity > 0.001) {
-		for (int i = 0; i < 8; i++) {
-			float fi    = float(i);
-			float speed = 1.2 + fi * 0.4;
-			float px    = fract(sin(fi * 127.1 + 43.2) * 4375.5);
-			float py    = fract(sin(fi * 311.7 + 12.8) * 5765.1);
-			float life  = sin(fract(TIME * speed + fi * 0.618) * 3.14159);
-			float dx    = UV.x - px;
-			float dy    = UV.y - py;
-			sparks += exp(-(dx*dx + dy*dy) * 4500.0) * life * life * life;
-		}
-		sparks *= sparkle_intensity * 0.35;
-	}
-
-	// Add brightness on top of the existing stylebox color
-	COLOR.rgb += sweep + glow + sparks;
-}
-"
-
-const VIGNETTE_SHADER := "
-shader_type canvas_item;
-void fragment() {
-	vec2 uv = UV * 2.0 - 1.0;
-	float v = dot(uv, uv);
-	float alpha = smoothstep(0.4, 1.6, v) * 0.50;
-	COLOR = vec4(0.0, 0.0, 0.0, alpha);
-}
-"
-
-const BG_SHADER := "
-shader_type canvas_item;
-void fragment() {
-	vec2 uv = UV;
-	float t = TIME * 0.05;
-
-	vec3 base = mix(vec3(0.08, 0.09, 0.14), vec3(0.04, 0.04, 0.08), uv.y);
-
-	vec2 p1 = vec2(0.20 + sin(t * 0.71) * 0.10, 0.18 + cos(t * 0.53) * 0.08);
-	vec2 p2 = vec2(0.78 + cos(t * 0.67) * 0.09, 0.52 + sin(t * 0.41) * 0.13);
-	vec2 p3 = vec2(0.48 + sin(t * 0.37) * 0.07, 0.82 + cos(t * 0.29) * 0.05);
-
-	float b1 = smoothstep(0.50, 0.0, length(uv - p1));
-	float b2 = smoothstep(0.45, 0.0, length(uv - p2));
-	float b3 = smoothstep(0.38, 0.0, length(uv - p3));
-
-	vec3 col = base;
-	col += vec3(0.10, 0.05, 0.25) * b1 * 0.20;
-	col += vec3(0.03, 0.10, 0.24) * b2 * 0.16;
-	col += vec3(0.15, 0.04, 0.18) * b3 * 0.14;
-
-	COLOR = vec4(col, 1.0);
-}
-"
+const _SHADER_BG       := preload("res://shaders/background.gdshader")
+const _SHADER_VIGNETTE := preload("res://shaders/vignette.gdshader")
+const _SHADER_SHIMMER  := preload("res://shaders/shimmer.gdshader")
 
 # ── State ──────────────────────────────────────────────────────────────────
 var _state: GameState
@@ -191,17 +121,29 @@ var _puzzle_start_time: float = 0.0
 var _overlay: Control = null
 var _overlay_tag: String = ""
 var _fade_rect: ColorRect
+var _dim_rect: ColorRect = null       # persistent overlay dim (single reusable node)
+var _font_cache: Dictionary = {}      # caches FontVariation/FontFile by key string
+var _tile_tap_times: Dictionary = {}  # word → last tap time (ms), for debounce
+var _loading_pulse: Tween = null      # held so _close_overlay can kill it
 
 
 # ── Boot ───────────────────────────────────────────────────────────────────
 func _unhandled_input(event: InputEvent) -> void:
-	if not OS.is_debug_build():
-		return
-	if event is InputEventKey and event.pressed and not event.echo:
-		if event.keycode == KEY_D and event.ctrl_pressed and not event.shift_pressed:
-			_debug_skip_to_leaderboard()
-		elif event.keycode == KEY_D and event.ctrl_pressed and event.shift_pressed:
-			_debug_clear_daily()
+	if OS.is_debug_build():
+		if event is InputEventKey and event.pressed and not event.echo:
+			if event.keycode == KEY_D and event.ctrl_pressed and not event.shift_pressed:
+				_debug_skip_to_leaderboard()
+				return
+			elif event.keycode == KEY_D and event.ctrl_pressed and event.shift_pressed:
+				_debug_clear_daily()
+				return
+
+	if event.is_action_pressed("ui_cancel"):
+		if _overlay and is_instance_valid(_overlay):
+			_close_overlay()
+		else:
+			_go_to_menu()
+		get_viewport().set_input_as_handled()
 
 func _debug_clear_daily() -> void:
 	var date_str: String = SaveManager.get_today()["date_str"]
@@ -351,6 +293,14 @@ func _build_ui() -> void:
 	_build_action_buttons(outer_vbox)
 	_build_nav_row(outer_vbox)
 
+	# Persistent dim node — reused by all overlays (sits below fade_rect)
+	_dim_rect = ColorRect.new()
+	_dim_rect.color = Color(0, 0, 0, 0.65)
+	_dim_rect.set_anchors_and_offsets_preset(Control.PRESET_FULL_RECT)
+	_dim_rect.mouse_filter = Control.MOUSE_FILTER_STOP
+	_dim_rect.visible = false
+	add_child(_dim_rect)
+
 	# Fade overlay — always topmost
 	_fade_rect = ColorRect.new()
 	_fade_rect.color = Color(0, 0, 0, 1)
@@ -365,9 +315,7 @@ func _add_bg() -> void:
 	var bg: ColorRect = ColorRect.new()
 	bg.set_anchors_and_offsets_preset(Control.PRESET_FULL_RECT)
 	var bg_mat := ShaderMaterial.new()
-	var bg_shader := Shader.new()
-	bg_shader.code = BG_SHADER
-	bg_mat.shader = bg_shader
+	bg_mat.shader = _SHADER_BG
 	bg.material = bg_mat
 	add_child(bg)
 
@@ -375,11 +323,9 @@ func _add_bg() -> void:
 	var vignette: ColorRect = ColorRect.new()
 	vignette.set_anchors_and_offsets_preset(Control.PRESET_FULL_RECT)
 	vignette.mouse_filter = Control.MOUSE_FILTER_IGNORE
-	var mat := ShaderMaterial.new()
-	var shader := Shader.new()
-	shader.code = VIGNETTE_SHADER
-	mat.shader = shader
-	vignette.material = mat
+	var vignette_mat := ShaderMaterial.new()
+	vignette_mat.shader = _SHADER_VIGNETTE
+	vignette.material = vignette_mat
 	add_child(vignette)
 
 func _build_header(parent: VBoxContainer) -> void:
@@ -397,7 +343,7 @@ func _build_header(parent: VBoxContainer) -> void:
 	_puzzle_stars = Label.new()
 	_puzzle_stars.theme_type_variation = "MetaLabel"
 	_puzzle_stars.add_theme_font_override("font", _icon_font())
-	_puzzle_stars.add_theme_font_size_override("font_size", 16)
+	_puzzle_stars.add_theme_font_size_override("font_size", 20)
 	meta_row.add_child(_puzzle_stars)
 
 	_score_label = Label.new()
@@ -414,7 +360,7 @@ func _build_header(parent: VBoxContainer) -> void:
 	settings_btn.text = _icon("settings")
 	settings_btn.add_theme_font_override("font", _icon_font())
 	settings_btn.add_theme_font_size_override("font_size", 24)
-	settings_btn.custom_minimum_size = Vector2(44, 44)
+	settings_btn.custom_minimum_size = Vector2(52, 52)
 	settings_btn.theme_type_variation = "GhostButton"
 	settings_btn.pressed.connect(_on_settings)
 	meta_row.add_child(settings_btn)
@@ -450,7 +396,7 @@ func _build_mistakes_row(parent: VBoxContainer) -> void:
 
 	for i in GameState.MAX_MISTAKES:
 		var dot: Panel = Panel.new()
-		dot.custom_minimum_size = Vector2(32, 32)
+		dot.custom_minimum_size = Vector2(38, 38)
 		var style: StyleBoxFlat = _rounded_box(C_MISTAKE_ON, 16)
 		dot.add_theme_stylebox_override("panel", style)
 		row.add_child(dot)
@@ -512,6 +458,8 @@ func _build_nav_row(parent: VBoxContainer) -> void:
 	var menu_btn: Button = _make_ghost_btn("Izbornik", "menu")
 	menu_btn.pressed.connect(_go_to_menu)
 	menu_btn.theme_type_variation = "GhostButton"
+	if _is_daily:
+		menu_btn.size_flags_horizontal = Control.SIZE_EXPAND_FILL
 	row.add_child(menu_btn)
 
 	if not _is_daily:
@@ -524,6 +472,25 @@ func _build_nav_row(parent: VBoxContainer) -> void:
 func _load_puzzle(index: int) -> void:
 	_state_generation += 1  # invalidates any pending awaits from the old puzzle (#4, #9)
 	_hide_summary()
+	if _state != null:
+		if _state.selection_changed.is_connected(_on_selection_changed):
+			_state.selection_changed.disconnect(_on_selection_changed)
+		if _state.guess_correct.is_connected(_on_guess_correct):
+			_state.guess_correct.disconnect(_on_guess_correct)
+		if _state.guess_wrong.is_connected(_on_guess_wrong):
+			_state.guess_wrong.disconnect(_on_guess_wrong)
+		if _state.hint_peek.is_connected(_on_hint_peek):
+			_state.hint_peek.disconnect(_on_hint_peek)
+		if _state.hint_word.is_connected(_on_hint_word):
+			_state.hint_word.disconnect(_on_hint_word)
+		if _state.hint_solve.is_connected(_on_hint_solve):
+			_state.hint_solve.disconnect(_on_hint_solve)
+		if _state.score_changed.is_connected(_on_score_changed):
+			_state.score_changed.disconnect(_on_score_changed)
+		if _state.game_won.is_connected(_on_game_won):
+			_state.game_won.disconnect(_on_game_won)
+		if _state.game_lost.is_connected(_on_game_lost):
+			_state.game_lost.disconnect(_on_game_lost)
 	_state = GameState.new(_puzzles[index])
 	_state.selection_changed.connect(_on_selection_changed)
 	_state.guess_correct.connect(_on_guess_correct)
@@ -571,16 +538,12 @@ func _load_puzzle(index: int) -> void:
 	_rebuild_grid()
 
 func _difficulty_badge(puzzle: PuzzleData.Puzzle) -> String:
-	var total: int = 0
+	var total: float = 0.0
 	for cat in puzzle.categories:
-		total += cat.rank
-	var avg: float = total / 4.0
+		total += float(cat.difficulty) + (cat.rank - 1) * 0.5
+	var stars: int = clampi(roundi(total / 4.0) + 1, 1, 5)
 	var s := _icon("star")
-	if avg < 1.5:
-		return s
-	elif avg < 2.5:
-		return s + s
-	return s + s + s
+	return s.repeat(stars)
 
 func _rebuild_grid() -> void:
 	for child in _grid.get_children():
@@ -613,7 +576,12 @@ func _make_tile(word: String) -> Button:
 	btn.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
 	btn.add_theme_font_size_override("font_size", _effective_font_size(word))
 
-	btn.pressed.connect(func() -> void: _state.toggle_word(word))
+	btn.pressed.connect(func() -> void:
+		var now := Time.get_ticks_msec()
+		if now - _tile_tap_times.get(word, 0) < 150:
+			return
+		_tile_tap_times[word] = now
+		_state.toggle_word(word))
 
 	# Micro-bounce on press (#19)
 	btn.button_down.connect(func() -> void:
@@ -632,18 +600,25 @@ func _make_tile(word: String) -> Button:
 	return btn
 
 func _icon_font() -> FontFile:
-	return load(ICON_FONT_PATH) as FontFile
+	if "icon" not in _font_cache:
+		_font_cache["icon"] = load(ICON_FONT_PATH) as FontFile
+	return _font_cache["icon"] as FontFile
 
 func _mixed_font(weight: int = 700) -> FontVariation:
-	var fv := FontVariation.new()
-	fv.base_font = load(FONT_PATH)
-	fv.variation_opentype = {"wght": weight}
-	fv.fallbacks = [_icon_font()]
-	return fv
+	var key := "mixed_%d" % weight
+	if key not in _font_cache:
+		var fv := FontVariation.new()
+		if "outfit_base" not in _font_cache:
+			_font_cache["outfit_base"] = load(FONT_PATH)
+		fv.base_font = _font_cache["outfit_base"] as FontFile
+		fv.variation_opentype = {"wght": weight}
+		fv.fallbacks = [_icon_font()]
+		_font_cache[key] = fv
+	return _font_cache[key] as FontVariation
 
 func _make_ghost_btn(label: String, icon_name: String = "") -> Button:
 	var btn: Button = Button.new()
-	btn.custom_minimum_size = Vector2(118, 60)
+	btn.custom_minimum_size = Vector2(118, 72)
 	if icon_name.is_empty():
 		btn.text = label
 	else:
@@ -654,7 +629,7 @@ func _make_ghost_btn(label: String, icon_name: String = "") -> Button:
 
 func _make_hint_btn() -> Button:
 	var btn: Button = Button.new()
-	btn.custom_minimum_size = Vector2(138, 60)
+	btn.custom_minimum_size = Vector2(138, 72)
 	btn.text = _icon("lightbulb") + "  Hint  (%d)" % GameState.MAX_HINTS
 	btn.add_theme_font_override("font", _mixed_font())
 	btn.add_theme_font_size_override("font_size", 18)
@@ -691,12 +666,16 @@ func _apply_submit_style(btn: Button, is_ready: bool) -> void:
 func _tile_style_normal() -> StyleBoxFlat:
 	return _rounded_box(C_TILE_NORMAL, RADIUS_TILE)
 
+func _get_border_sel() -> int:
+	return 4 if DisplayServer.screen_get_dpi(0) > 300 else BORDER_SEL
+
 func _tile_style_selected() -> StyleBoxFlat:
 	var s: StyleBoxFlat = _rounded_box(C_TILE_SEL, RADIUS_TILE)
-	s.border_width_left   = BORDER_SEL
-	s.border_width_right  = BORDER_SEL
-	s.border_width_top    = BORDER_SEL
-	s.border_width_bottom = BORDER_SEL
+	var bw: int = _get_border_sel()
+	s.border_width_left   = bw
+	s.border_width_right  = bw
+	s.border_width_top    = bw
+	s.border_width_bottom = bw
 	s.border_color = C_SEL_BORDER
 	return s
 
@@ -725,10 +704,15 @@ func _set_dot_active(dot: Panel, active: bool) -> void:
 	dot.add_theme_stylebox_override("panel", style)
 
 func _make_font(weight: int) -> FontVariation:
-	var fv := FontVariation.new()
-	fv.base_font = load(FONT_PATH)
-	fv.variation_opentype = {"wght": weight}
-	return fv
+	var key := "outfit_%d" % weight
+	if key not in _font_cache:
+		var fv := FontVariation.new()
+		if "outfit_base" not in _font_cache:
+			_font_cache["outfit_base"] = load(FONT_PATH)
+		fv.base_font = _font_cache["outfit_base"] as FontFile
+		fv.variation_opentype = {"wght": weight}
+		_font_cache[key] = fv
+	return _font_cache[key] as FontVariation
 
 # ── Feedback helpers ───────────────────────────────────────────────────────
 const _FEEDBACK_CFG := {
@@ -868,6 +852,7 @@ func _on_selection_changed(selected: Array[String]) -> void:
 	_deselect_btn.disabled = selected.is_empty()
 
 func _on_guess_correct(category: PuzzleData.Category) -> void:
+	var gen := _state_generation
 	_show_typed_feedback(FeedbackType.CORRECT, "Točno!  —  " + category.name)
 	_submit_btn.disabled = true
 	_deselect_btn.disabled = true
@@ -888,12 +873,16 @@ func _on_guess_correct(category: PuzzleData.Category) -> void:
 		sweep.tween_property(btn, "scale", Vector2(1.06, 1.06), ANIM_SWEEP) \
 			.set_trans(Tween.TRANS_BACK).set_ease(Tween.EASE_OUT)
 	await sweep.finished
+	if _state_generation != gen:
+		return
 
 	# Phase 2: white flash
 	var flash: Tween = create_tween().set_parallel(true)
 	for btn in solved_btns:
 		flash.tween_property(btn, "modulate", Color(1.5, 1.5, 1.5, 1.0), ANIM_FLASH)
 	await flash.finished
+	if _state_generation != gen:
+		return
 
 	# Phase 3: settle
 	var settle: Tween = create_tween().set_parallel(true)
@@ -901,6 +890,8 @@ func _on_guess_correct(category: PuzzleData.Category) -> void:
 		settle.tween_property(btn, "modulate", Color.WHITE, ANIM_SETTLE)
 		settle.tween_property(btn, "scale", Vector2.ONE, ANIM_SETTLE)
 	await settle.finished
+	if _state_generation != gen:
+		return
 
 	# Phase 4: staggered fade-out
 	var fade: Tween = create_tween().set_parallel(true)
@@ -908,6 +899,8 @@ func _on_guess_correct(category: PuzzleData.Category) -> void:
 		fade.tween_property(solved_btns[i], "modulate", Color(1, 1, 1, 0), ANIM_TILE_FADE) \
 			.set_delay(i * ANIM_TILE_STAGGER).set_trans(Tween.TRANS_SINE)
 	await fade.finished
+	if _state_generation != gen:
+		return
 
 	_rebuild_grid()
 	_add_solved_row_animated(category)
@@ -1052,11 +1045,9 @@ func _add_solved_row(category: PuzzleData.Category) -> void:
 		extra_lbl.add_theme_color_override("font_color", diff_color.darkened(0.55))
 		vbox.add_child(extra_lbl)
 
-	# Shimmer applied to the panel itself so it covers the full background (#18)
+	# Shimmer applied to the panel itself so it covers the full background
 	var smat := ShaderMaterial.new()
-	var sshader := Shader.new()
-	sshader.code = SHIMMER_SHADER
-	smat.shader = sshader
+	smat.shader = _SHADER_SHIMMER
 	smat.set_shader_parameter("spawn_time", Time.get_ticks_msec() / 1000.0)
 	smat.set_shader_parameter("sparkle_intensity", SPARKLE_INTENSITY[category.difficulty])
 	row.material = smat
@@ -1208,10 +1199,10 @@ func _show_name_picker() -> void:
 	_close_overlay()
 
 	var dim: ColorRect = _make_dim()
-	_overlay = dim
 	_overlay_tag = "name_picker"
 
 	var panel: PanelContainer = _make_overlay_panel(dim, 640)
+	_overlay = panel
 	var vbox: VBoxContainer = _make_overlay_vbox(panel, 14)
 
 	var header: Label = Label.new()
@@ -1231,6 +1222,13 @@ func _show_name_picker() -> void:
 	name_display.custom_minimum_size = Vector2(0, 44)
 	vbox.add_child(name_display)
 
+	var char_count_lbl: Label = Label.new()
+	char_count_lbl.text = "0 / 10"
+	char_count_lbl.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
+	char_count_lbl.add_theme_font_size_override("font_size", 13)
+	char_count_lbl.add_theme_color_override("font_color", C_TEXT_DIM)
+	vbox.add_child(char_count_lbl)
+
 	var hint_lbl: Label = Label.new()
 	hint_lbl.text = "4–10 znakova"
 	hint_lbl.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
@@ -1240,10 +1238,10 @@ func _show_name_picker() -> void:
 
 	_add_separator(vbox)
 
-	# Use an Array as a mutable reference container so lambdas share state
+	# Use Arrays as mutable reference containers so lambdas share state
 	var name_buf: Array[String] = [""]
-	# ok_btn_ref stored in an Array so lambdas capture the container by ref, not the null value
 	var ok_btn_holder: Array[Button] = []
+	var letter_btn_holder: Array[Button] = []  # non-fn keys, disabled at max length
 
 	const KEY_ROWS := [
 		["0","1","2","3","4","5","6","7","8","9"],
@@ -1321,6 +1319,7 @@ func _show_name_picker() -> void:
 				sb_p.content_margin_top = 5
 				btn.add_theme_stylebox_override("pressed", sb_p)
 				btn.text = "SPC" if is_spc else ch
+				letter_btn_holder.append(btn)
 
 			var char_val: String = ch
 			btn.pressed.connect(func() -> void:
@@ -1329,16 +1328,25 @@ func _show_name_picker() -> void:
 					if name_buf[0].length() > 0:
 						name_buf[0] = name_buf[0].substr(0, name_buf[0].length() - 1)
 						name_display.text = name_buf[0]
+						char_count_lbl.text = "%d / 10" % name_buf[0].length()
 						if ok_btn and is_instance_valid(ok_btn):
 							ok_btn.disabled = name_buf[0].length() < 4
+						for lb in letter_btn_holder:
+							if is_instance_valid(lb):
+								lb.disabled = false
 				elif char_val == "OK":
 					_on_name_confirmed(name_buf[0])
 				else:
 					if name_buf[0].length() < 10:
 						name_buf[0] += char_val
 						name_display.text = name_buf[0]
+						char_count_lbl.text = "%d / 10" % name_buf[0].length()
 						if ok_btn and is_instance_valid(ok_btn):
-							ok_btn.disabled = name_buf[0].length() < 4)
+							ok_btn.disabled = name_buf[0].length() < 4
+						if name_buf[0].length() >= 10:
+							for lb in letter_btn_holder:
+								if is_instance_valid(lb):
+									lb.disabled = true)
 			row_hbox.add_child(btn)
 
 	_animate_overlay_in(dim, panel)
@@ -1379,9 +1387,9 @@ func _show_submitting_overlay(player_name: String, score: int, time_sec: float,
 		_show_leaderboard_overlay(mode, date_str, FirebaseClient.get_uid(), score, time_sec)
 		return
 	var dim := _make_dim()
-	_overlay = dim
 	_overlay_tag = "submitting"
 	var panel := _make_overlay_panel(dim, 340)
+	_overlay = panel
 	var vbox  := _make_overlay_vbox(panel, 18)
 
 	var lbl := Label.new()
@@ -1394,7 +1402,7 @@ func _show_submitting_overlay(player_name: String, score: int, time_sec: float,
 	_animate_overlay_in(dim, panel)
 
 	var ok := await FirebaseClient.submit_score(player_name, score, time_sec, mode, date_str, puzzle_seed)
-	if not is_instance_valid(dim):
+	if not is_instance_valid(panel):
 		return
 
 	if ok:
@@ -1422,9 +1430,9 @@ func _show_submitting_overlay(player_name: String, score: int, time_sec: float,
 
 func _show_leaderboard_overlay(mode: String, date_str: String, my_uid: String, my_score: int = -1, _my_time: float = 0.0) -> void:
 	var dim := _make_dim()
-	_overlay = dim
 	_overlay_tag = "leaderboard"
-	var panel := _make_overlay_panel(dim, 420)
+	var panel := _make_overlay_panel(dim, 620)
+	_overlay = panel
 	var vbox  := _make_overlay_vbox(panel, 12)
 
 	var mode_label := "Dnevni izazov" if mode == "daily" else "Dnevnih 5"
@@ -1444,17 +1452,15 @@ func _show_leaderboard_overlay(mode: String, date_str: String, my_uid: String, m
 	date_lbl.add_theme_font_size_override("font_size", 14)
 	vbox.add_child(date_lbl)
 
-	_add_separator(vbox)
-
 	var loading_lbl := Label.new()
 	loading_lbl.text = "Učitavanje…"
 	loading_lbl.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
 	loading_lbl.add_theme_color_override("font_color", C_TEXT_DIM)
 	vbox.add_child(loading_lbl)
 
-	var pulse: Tween = create_tween().set_loops()
-	pulse.tween_property(loading_lbl, "modulate:a", 0.3, 0.65).set_trans(Tween.TRANS_SINE)
-	pulse.tween_property(loading_lbl, "modulate:a", 1.0, 0.65).set_trans(Tween.TRANS_SINE)
+	_loading_pulse = create_tween().set_loops()
+	_loading_pulse.tween_property(loading_lbl, "modulate:a", 0.3, 0.65).set_trans(Tween.TRANS_SINE)
+	_loading_pulse.tween_property(loading_lbl, "modulate:a", 1.0, 0.65).set_trans(Tween.TRANS_SINE)
 
 	_animate_overlay_in(dim, panel)
 
@@ -1462,7 +1468,9 @@ func _show_leaderboard_overlay(mode: String, date_str: String, my_uid: String, m
 	if not is_instance_valid(loading_lbl):
 		return
 
-	pulse.kill()
+	if _loading_pulse != null:
+		_loading_pulse.kill()
+		_loading_pulse = null
 	loading_lbl.queue_free()
 	_add_separator(vbox)
 
@@ -1486,7 +1494,7 @@ func _show_leaderboard_overlay(mode: String, date_str: String, my_uid: String, m
 		var me_row: Control = null
 		for i in entries.size():
 			var is_me: bool = entries[i]["uid"] == my_uid
-			var row := _make_leaderboard_row(i + 1, entries[i], is_me)
+			var row := _make_leaderboard_row(i + 1, entries[i], is_me, i % 2 == 1)
 			list.add_child(row)
 			if is_me:
 				me_row = row
@@ -1512,9 +1520,33 @@ func _show_leaderboard_overlay(mode: String, date_str: String, my_uid: String, m
 		_go_to_menu())
 	vbox.add_child(close_btn)
 
-func _make_leaderboard_row(rank: int, entry: Dictionary, is_me: bool) -> Control:
+func _make_leaderboard_row(rank: int, entry: Dictionary, is_me: bool, odd: bool = false) -> Control:
+	var wrapper := PanelContainer.new()
+	wrapper.size_flags_horizontal = Control.SIZE_EXPAND_FILL
+	if is_me:
+		var hl := _rounded_box(C_ACCENT.darkened(0.30), 8)
+		hl.border_width_left   = 2
+		hl.border_width_right  = 2
+		hl.border_width_top    = 2
+		hl.border_width_bottom = 2
+		hl.border_color = C_ACCENT
+		wrapper.add_theme_stylebox_override("panel", hl)
+	else:
+		var flat := StyleBoxFlat.new()
+		flat.bg_color = Color(1, 1, 1, 0.04 if odd else 0.0)
+		flat.corner_radius_top_left     = 6
+		flat.corner_radius_top_right    = 6
+		flat.corner_radius_bottom_left  = 6
+		flat.corner_radius_bottom_right = 6
+		flat.content_margin_left   = 8
+		flat.content_margin_right  = 8
+		flat.content_margin_top    = 4
+		flat.content_margin_bottom = 4
+		wrapper.add_theme_stylebox_override("panel", flat)
+
 	var row := HBoxContainer.new()
 	row.add_theme_constant_override("separation", 10)
+	wrapper.add_child(row)
 
 	var rank_lbl := Label.new()
 	rank_lbl.text = "%d." % rank
@@ -1537,7 +1569,7 @@ func _make_leaderboard_row(rank: int, entry: Dictionary, is_me: bool) -> Control
 	var name_lbl := Label.new()
 	name_lbl.text = entry["name"]
 	name_lbl.size_flags_horizontal = Control.SIZE_EXPAND_FILL
-	name_lbl.add_theme_font_override("font", _make_font(700 if is_me else 600))
+	name_lbl.add_theme_font_override("font", _make_font(700 if is_me else 500))
 	row.add_child(name_lbl)
 
 	var score_lbl := Label.new()
@@ -1546,40 +1578,35 @@ func _make_leaderboard_row(rank: int, entry: Dictionary, is_me: bool) -> Control
 	row.add_child(score_lbl)
 
 	var time_lbl := Label.new()
-	time_lbl.text = "  " + _fmt_time(entry["time"])
+	time_lbl.text = _fmt_time(entry["time"])
 	time_lbl.add_theme_font_override("font", _make_font(500))
 	time_lbl.add_theme_color_override("font_color", C_TEXT_DIM)
 	time_lbl.add_theme_font_size_override("font_size", 13)
 	row.add_child(time_lbl)
 
-	if is_me:
-		var row_bg := PanelContainer.new()
-		row_bg.add_theme_stylebox_override("panel", _rounded_box(C_ACCENT.darkened(0.6), 8))
-		row_bg.size_flags_horizontal = Control.SIZE_EXPAND_FILL
-		row_bg.add_child(row)
-		return row_bg
-	return row
+	return wrapper
 
 func _fmt_time(secs: float) -> String:
 	var s: int = int(secs)
 	if s < 60:
 		return "%ds" % s
-	var mins: int = s / 60
+	var mins: int = floori(s / 60.0)
 	return "%dm%02ds" % [mins, s % 60]
 
 # ── Settings overlay (#14, #18) ────────────────────────────────────────────
 func _on_settings() -> void:
-	# Toggle: if settings is already open close it; close any other overlay too (#8)
+	# Toggle: if settings is already open close it; close any other overlay too
 	if _overlay and is_instance_valid(_overlay):
+		var was_settings := _overlay_tag == "settings"
 		_close_overlay()
-		if _overlay_tag == "settings":
+		if was_settings:
 			return
 
 	var dim: ColorRect = _make_dim()
-	_overlay = dim
 	_overlay_tag = "settings"
 
 	var panel: PanelContainer = _make_overlay_panel(dim, 380)
+	_overlay = panel
 	var vbox: VBoxContainer = _make_overlay_vbox(panel, 18)
 
 	var title_lbl: Label = Label.new()
@@ -1655,17 +1682,21 @@ func _set_tile_font_size(tile_size: int) -> void:
 
 # ── Overlay helpers ────────────────────────────────────────────────────────
 func _close_overlay() -> void:
-	if _overlay and is_instance_valid(_overlay):
-		_overlay.queue_free()
+	if _loading_pulse != null:
+		_loading_pulse.kill()
+		_loading_pulse = null
 	_overlay = null
 	_overlay_tag = ""
+	if is_instance_valid(_dim_rect):
+		for child in _dim_rect.get_children():
+			child.queue_free()
+		_dim_rect.visible = false
 
 func _make_dim() -> ColorRect:
-	var dim: ColorRect = ColorRect.new()
-	dim.color = Color(0, 0, 0, 0.65)
-	dim.set_anchors_and_offsets_preset(Control.PRESET_FULL_RECT)
-	add_child(dim)
-	return dim
+	for child in _dim_rect.get_children():
+		child.queue_free()
+	_dim_rect.visible = true
+	return _dim_rect
 
 func _make_overlay_panel(parent: Control, min_width: int) -> PanelContainer:
 	var center: CenterContainer = CenterContainer.new()
@@ -1727,7 +1758,7 @@ func _spawn_confetti() -> void:
 	particles.emitting            = true
 	particles.one_shot            = true
 	particles.explosiveness       = 0.95
-	particles.amount              = 90
+	particles.amount              = 40 if OS.has_feature("web") else 90
 	particles.lifetime            = 2.5
 	particles.lifetime_randomness = 0.55
 	particles.direction           = Vector2(0.0, -1.0)

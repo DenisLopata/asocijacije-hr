@@ -56,7 +56,9 @@ Pushing to `main` triggers automatic export and deploy via GitHub Actions.
 
 ## Adding puzzles
 
-Open `scripts/puzzle_data.gd` and add an entry to the `_PUZZLES` array. Each puzzle needs 4 categories with 4 words each and a difficulty rank (0–3). Try to make at least one category deceptively obvious. That's where the fun is.
+Open `scripts/puzzle_data.gd` and add entries to the tier pools — `_yellow_pool()`, `_green_pool()`, `_blue_pool()`, or `_purple_pool()`. Each entry is `[name, [word1, word2, word3, word4], rank]` where rank is 1 (easiest within tier) to 3 (hardest / wordplay). The generation engine picks one category per tier per puzzle using weighted rank odds, so new entries go into the rotation automatically.
+
+Check `_category_extras()` to add an optional hint string shown on the solved row — only use it when the category mechanic isn't obvious from the name alone. Try to make at least one category deceptively obvious. That's where the fun is.
 
 ---
 

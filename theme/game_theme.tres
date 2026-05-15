@@ -297,10 +297,10 @@ SubtitleLabel/colors/font_color    = Color(0.55, 0.56, 0.62, 1)
 SubtitleLabel/font_sizes/font_size = 18
 
 MetaLabel/colors/font_color    = Color(0.55, 0.56, 0.62, 1)
-MetaLabel/font_sizes/font_size = 17
+MetaLabel/font_sizes/font_size = 20
 
 ScoreLabel/colors/font_color    = Color(0.45, 0.55, 1.0, 1)
-ScoreLabel/font_sizes/font_size = 17
+ScoreLabel/font_sizes/font_size = 20
 
 FeedbackLabel/colors/font_color    = Color(0.96, 0.96, 0.98, 1)
 FeedbackLabel/font_sizes/font_size = 18
