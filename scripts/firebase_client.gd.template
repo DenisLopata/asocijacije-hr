@@ -36,7 +36,11 @@ func _js_call(fn: String, args: Array) -> Array:
 	var arg_list := ",".join(
 		Array(range(args.size())).map(func(i): return "window.__ga_%d" % i)
 	)
-	JavaScriptBridge.eval("window.%s(%s,window.__gfb_cb)" % [fn, arg_list], true)
+	# Wrap in JS try-catch so a missing/throwing function calls __gfb_cb(0, err)
+	# instead of crashing the eval synchronously (which would skip the await).
+	JavaScriptBridge.eval(
+		"try{window.%s(%s,window.__gfb_cb)}catch(e){window.__gfb_cb(0,String(e))}" \
+		% [fn, arg_list], true)
 	var _timeout_cb := func() -> void: _js_response.emit(0, "timeout")
 	get_tree().create_timer(20.0).timeout.connect(_timeout_cb, CONNECT_ONE_SHOT)
 	var r = await _js_response
