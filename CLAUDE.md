@@ -11,7 +11,7 @@ scenes/
   main_menu.gd       — Main menu, stagger-in animations, settings overlay
   game_screen.gd     — All game logic and UI, the main file
 scripts/
-  puzzle_data.gd     — Puzzle pool (240 categories) + generation logic + difficulty colours
+  puzzle_data.gd     — Puzzle pool (~298 categories) + generation logic + difficulty colours
   game_state.gd      — Turn-by-turn state machine (selection, validation, scoring)
   save_manager.gd    — Persistent progress via ConfigFile
 assets/
@@ -64,7 +64,7 @@ Three modes, all accessible from the main menu:
 - **Name picker overlay** (`_show_name_picker`) — on-screen keyboard with Croatian alphabet (A–Ž) + digits + hyphen + space; 4–10 chars; OK disabled until 4 chars entered. Daily modes include a "Preskoči ljestvicu" secondary button.
 - **Submitting overlay** (`_show_submitting_overlay`) — spinner shown while Firebase write is in flight; transitions to leaderboard on success or shows error with retry/skip options.
 - **Leaderboard overlay** (`_show_leaderboard_overlay`) — top 20 scores from Firestore; current player row highlighted; rank coloured by position.
-- **Settings overlay** (`_show_settings_overlay`) — font size picker (14/18/22 px), session clear. Persisted via `SaveManager.save_prefs(tile_font_size)`.
+- **Settings overlay** (`_show_settings_overlay`) — font size picker (16/20/26 px), session clear. Persisted via `SaveManager.save_prefs(tile_font_size)`.
 
 ### Other game_screen.gd features
 
@@ -74,6 +74,8 @@ Three modes, all accessible from the main menu:
 - **Confetti** — `CPUParticles2D` burst on win, colours drawn from all four difficulty tiers.
 - **Background shader** — animated aurora/gradient shader, same as main_menu.gd.
 - **Puzzle counter prefix** — `"Dnevni  "` for Dnevni izazov, `"Dnevnih 5  "` for Dnevnih 5, `"Slagalica "` for Nova igra.
+- **Dnevnih 5 puzzle counter** — `_session_label` in the top HUD shows `"X / 5"` (current puzzle index + 1 / total) when `_is_five_daily` is true. Updated via `_update_session_label()`. Nova igra uses the same label to show best score.
+- **Mistake indicators** — 4 heart icons (`_mistake_dots: Array[Label]`) using Material Symbols `favorite` (active) and `favorite_border` (depleted). Wrong guess triggers a left-right shake animation on the depleted heart.
 - **Stars and timer** — difficulty stars (`_puzzle_stars`) and timer (`_timer_label`) are hidden during the summary screen and restored when the next puzzle loads.
 
 ## Debug shortcuts
@@ -158,11 +160,11 @@ Never mix patterns. `"Mogu se otvoriti"` not `"Može se 'otvoriti'"`. `"Završav
 
 | Tier | Rank 1 | Rank 2 | Rank 3 | Total |
 |------|--------|--------|--------|-------|
-| YELLOW | 20 | 20 | 14 | 54 |
-| GREEN | 20 | 27 | 27 | 74 |
-| BLUE | 18 | 28 | 44 | 90 |
-| PURPLE | 17 | 20 | 43 | 80 |
-| **Total** | **75** | **95** | **128** | **298** |
+| YELLOW | 34 | 20 | 18 | 72 |
+| GREEN | 22 | 41 | 22 | 85 |
+| BLUE | 17 | 51 | 51 | 119 |
+| PURPLE | 11 | 30 | 52 | 93 |
+| **Total** | **84** | **142** | **143** | **369** |
 
 ### Generation
 
