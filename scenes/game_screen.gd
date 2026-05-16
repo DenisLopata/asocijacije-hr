@@ -291,7 +291,7 @@ func _restore_state(data: Dictionary) -> void:
 		_set_dot_active(_mistake_dots[i], i >= used)
 
 	_score_display = _state.score
-	_score_label.text = "Bodovi: %d" % _state.score
+	_score_label.text = "%d" % _state.score
 	_update_hint_btn()
 	_rebuild_grid()
 	# Restore visual selection state after grid is rebuilt (#3)
@@ -423,7 +423,7 @@ func _build_header(parent: VBoxContainer) -> void:
 
 	_score_label = Label.new()
 	_score_label.theme_type_variation = "ScoreLabel"
-	_score_label.text = "Bodovi: 0"
+	_score_label.text = "0"
 	meta_row.add_child(_score_label)
 
 	_session_label = Label.new()
@@ -574,7 +574,7 @@ func _load_puzzle(index: int) -> void:
 	SaveManager.save_puzzle_start(_puzzle_start_time)
 
 	_score_display = 0
-	_score_label.text = "Bodovi: 0"
+	_score_label.text = "0"
 
 	for child in _solved_container.get_children():
 		child.queue_free()
@@ -730,6 +730,9 @@ func _apply_submit_style(btn: Button, is_ready: bool) -> void:
 	var hover: StyleBoxFlat = normal.duplicate()
 	hover.bg_color = color.lightened(0.12)
 	btn.add_theme_stylebox_override("hover", hover)
+	var pressed_style: StyleBoxFlat = normal.duplicate()
+	pressed_style.bg_color = color.darkened(0.10)
+	btn.add_theme_stylebox_override("pressed", pressed_style)
 
 # ── Style helpers ──────────────────────────────────────────────────────────
 func _tile_style_normal() -> StyleBoxFlat:
@@ -999,9 +1002,19 @@ func _on_guess_wrong(words: Array[String], one_away: bool) -> void:  # (#5: use 
 		var outlier: String = _state.get_one_away_outlier(words)
 		if outlier != "" and _tile_buttons.has(outlier):
 			var obtn: Button = _tile_buttons[outlier]
-			var ot: Tween = create_tween()
-			ot.tween_property(obtn, "modulate", Color(1.0, 0.65, 0.15, 1.0), 0.15)
-			ot.tween_property(obtn, "modulate", Color.WHITE, 0.35)
+			var amber_style: StyleBoxFlat = _rounded_box(C_TILE_SEL, RADIUS_TILE)
+			amber_style.border_width_left   = BORDER_SEL
+			amber_style.border_width_right  = BORDER_SEL
+			amber_style.border_width_top    = BORDER_SEL
+			amber_style.border_width_bottom = BORDER_SEL
+			amber_style.border_color = C_ONE_AWAY
+			obtn.add_theme_stylebox_override("normal", amber_style)
+			obtn.add_theme_stylebox_override("hover",  amber_style)
+			await get_tree().create_timer(0.9).timeout
+			if is_instance_valid(obtn) and obtn in _tile_buttons.values():
+				var sel_style: StyleBoxFlat = _tile_style_selected()
+				obtn.add_theme_stylebox_override("normal", sel_style)
+				obtn.add_theme_stylebox_override("hover",  sel_style)
 		_show_typed_feedback(FeedbackType.ONE_AWAY, "Jedan pojam ne odgovara!")
 	else:
 		_show_typed_feedback(FeedbackType.WRONG, "Nije točno — pokušaj ponovo")
@@ -1109,7 +1122,7 @@ func _add_solved_row(category: PuzzleData.Category) -> void:
 		extra_lbl.text = category.extra
 		extra_lbl.theme_type_variation = "SolvedWordsLabel"
 		extra_lbl.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
-		extra_lbl.add_theme_color_override("font_color", diff_color.darkened(0.55))
+		extra_lbl.add_theme_color_override("font_color", Color(1, 1, 1, 0.6))
 		vbox.add_child(extra_lbl)
 
 	# Shimmer applied to the panel itself so it covers the full background
@@ -1293,7 +1306,7 @@ func _show_name_picker() -> void:
 	var dim: ColorRect = _make_dim()
 	_overlay_tag = "name_picker"
 
-	var panel: PanelContainer = _make_overlay_panel(dim, 680)
+	var panel: PanelContainer = _make_overlay_panel(dim, 500)
 	_overlay = panel
 	var vbox: VBoxContainer = _make_overlay_vbox(panel, 14)
 
@@ -1892,7 +1905,7 @@ func _spawn_confetti() -> void:
 func _on_score_changed(total: int, gained: int) -> void:
 	var tween: Tween = create_tween()
 	tween.tween_method(func(v: int) -> void:
-		_score_label.text = "Bodovi: %d" % v, _score_display, total, ANIM_SCORE) \
+		_score_label.text = "%d" % v, _score_display, total, ANIM_SCORE) \
 		.set_trans(Tween.TRANS_QUAD).set_ease(Tween.EASE_OUT)
 	_score_display = total
 	if gained > 0:
