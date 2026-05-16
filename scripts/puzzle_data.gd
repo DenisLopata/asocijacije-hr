@@ -67,7 +67,7 @@ class Puzzle:
 static func _yellow_pool() -> Array:
 	return [
 		# --- rank 1 ---
-		["Boje",                   ["bijela", "crna", "ljubičasta", "ružičasta"],           1, "obvious"],
+		["Boje",                   ["bijela", "crna", "ljubičasta", "ružičasta"],           1, "obvious",  ["bijel", "crn"]],
 		["Godišnja doba",          ["proljeće", "ljeto", "jesen", "zima"],                  1, "obvious"],
 		["Domaće životinje",       ["krava", "svinja", "magarac", "koza"],                  1, "obvious"],
 		["Voće",                   ["jabuka", "breskva", "šljiva", "trešnja"],              1, "obvious"],
@@ -87,43 +87,60 @@ static func _yellow_pool() -> Array:
 		["Rodbina",                ["majka", "otac", "sestra", "brat"],                     1, "obvious"],
 		["Dijelovi dana",          ["jutro", "podne", "večer", "noć"],                      1, "obvious"],
 		["Školski pribor",         ["olovka", "ravnalo", "guma", "šestar"],                 1, "obvious"],
+		["Padavine",               ["kiša", "snijeg", "tuča", "rosa"],                     1, "obvious",  ["kiša"]],
 		["Završavaju na -ost",     ["radost", "mladost", "ljubaznost", "hrabrost"],         1, "wordplay"],
 		["Odmilice za rodbinu",    ["mama", "tata", "baka", "deda"],                        1, "wordplay"],
 		["Mlade životinje",        ["mače", "štene", "pile", "tele"],                       1, "wordplay"],
 		# --- rank 2 ---
-		["Sportovi",               ["plivanje", "trčanje", "biciklizam", "gimnastika"],     2, "obvious"],
+		["Sportovi",               ["plivanje", "trčanje", "biciklizam", "gimnastika"],     1, "obvious"],
 		["Doručak",                ["jaje", "tost", "jogurt", "žitarice"],                  2, "obvious"],
-		["Kućanski aparati",       ["hladnjak", "perilica", "mikrovalna", "usisavač"],      2, "obvious"],
-		["Dijelovi kuće",          ["kuhinja", "spavaonica", "blagovaonica", "kupaonica"],  2, "obvious"],
+		["Kućanski aparati",       ["hladnjak", "perilica", "mikrovalna", "usisavač"],      1, "obvious"],
+		["Dijelovi kuće",          ["kuhinja", "spavaonica", "blagovaonica", "kupaonica"],  1, "obvious"],
 		["Planeti",                ["Mars", "Venera", "Saturn", "Jupiter"],                 2, "obvious"],
-		["Instrumenti",            ["gitara", "violina", "truba", "flauta"],                2, "obvious"],
+		["Instrumenti",            ["gitara", "violina", "truba", "flauta"],                1, "obvious"],
 		["Drveće",                 ["lipa", "bukva", "bor", "javor"],                       2, "obvious"],
-		["Alati",                  ["čekić", "pila", "odvijač", "kliješta"],                2, "obvious"],
-		["Metali",                 ["zlato", "aluminij", "željezo", "bakar"],               2, "obvious"],
-		["Školski predmeti",       ["matematika", "povijest", "geografija", "biologija"],   2, "obvious"],
+		["Alati",                  ["čekić", "pila", "odvijač", "kliješta"],                1, "obvious"],
+		["Metali",                 ["zlato", "aluminij", "željezo", "bakar"],               1, "obvious",  ["zlat", "željez"]],
+		["Školski predmeti",       ["matematika", "povijest", "geografija", "biologija"],   1, "obvious"],
 		["Zimski sportovi",        ["skijanje", "sanjkanje", "hokej", "klizanje"],          2, "obvious"],
-		["Životinje u šumi",       ["medvjed", "vuk", "jelen", "lisica"],                   2, "obvious"],
-		["Tople boje",             ["narančasta", "žuta", "crvena", "smeđa"],               2, "obvious"],
+		["Životinje u šumi",       ["medvjed", "vuk", "jelen", "lisica"],                   1, "obvious"],
+		["Tople boje",             ["narančasta", "žuta", "crvena", "smeđa"],               1, "obvious",  ["crven", "žut"]],
 		["Vrste mesa",             ["piletina", "govedina", "svinjetina", "janjetina"],     2, "obvious"],
-		["Nakit",                  ["prsten", "ogrlica", "narukvica", "naušnica"],          2, "obvious"],
+		["Nakit",                  ["prsten", "ogrlica", "narukvica", "naušnica"],          2, "obvious",  ["prsten"]],
 		["Vrtno povrće",           ["rajčica", "paprika", "tikvica", "patlidžan"],          2, "obvious"],
 		["Načini kuhanja",         ["pečenje", "kuhanje", "prženje", "dinstanje"],          2, "obvious"],
-		["Zimska odjeća",          ["šal", "kapa", "rukavice", "kaput"],                    2, "obvious"],
+		["Zimska odjeća",          ["šal", "kapa", "rukavice", "kaput"],                    1, "obvious"],
 		["Dijelovi bicikla",       ["kotač", "pedale", "upravljač", "sjedalo"],             2, "obvious"],
 		["Vrste juhe",             ["goveđa", "kokošja", "riblja", "povrtna"],              2, "obvious"],
+		["Završavaju na -stvo",    ["prijateljstvo", "bratstvo", "bogatstvo", "junaštvo"],  2, "wordplay"],
 		["Završavaju na -ica",     ["matica", "ulica", "granica", "klupica"],               2, "wordplay"],
 		["Završavaju na -aj",      ["tečaj", "sjaj", "običaj", "pokušaj"],                  2, "wordplay"],
 		["Kuhinjske mjere",        ["žličica", "šalica", "gram", "dekagram"],               2, "wordplay"],
 		["Imaju 'rep'",            ["majmun", "kometa", "štakor", "paun"],                  2, "wordplay"],
 		# --- rank 3 ---
-		["Oceani",                 ["Tihi", "Atlantski", "Indijski", "Arktički"],           3, "obvious"],
-		["Morski sisavci",         ["dupin", "kit", "foka", "morž"],                        3, "obvious"],
-		["Ljetni sportovi",        ["vaterpolo", "jedriličarstvo", "atletika", "veslanje"],  3, "obvious"],
-		["Ptice na farmi",         ["pijetao", "guska", "purica", "patka"],                 3, "obvious"],
+		["Oceani",                 ["Tihi", "Atlantski", "Indijski", "Arktički"],           2, "obvious"],
+		["Morski sisavci",         ["dupin", "kit", "foka", "morž"],                        2, "obvious"],
+		["Ljetni sportovi",        ["vaterpolo", "jedriličarstvo", "atletika", "veslanje"],  2, "obvious"],
+		["Ptice na farmi",         ["pijetao", "guska", "purica", "patka"],                 2, "obvious"],
 		["Morski beskralježnjaci", ["hobotnica", "lignja", "meduza", "koralj"],             3, "obvious"],
-		["Vrste sladoleda",        ["karamel", "vanilija", "pistacija", "lješnjak"],        3, "obvious"],
+		["Vrste sladoleda",        ["karamel", "vanilija", "pistacija", "lješnjak"],        2, "obvious"],
 		["Počinju s 'vodo-'",      ["vodopad", "vodozemac", "vodomar", "vodoinstalater"],   3, "wordplay"],
 		["Krije se broj (lakši)", ["stotina", "tisućnjak", "dvopek", "jednina"], 3, "wordplay"],
+		["Mogu biti 'kiseli'",    ["krastavac", "kupus", "izraz", "vino"],       3, "semantic"],
+		["Mogu 'zujati'",         ["komarac", "telefon", "muha", "struja"],       3, "semantic"],
+		["Mogu 'prsnuti'",        ["mjehur", "struna", "balon", "smijeh"],        3, "semantic"],
+		["Krije se 'oko'",        ["naokolo", "brokoli", "kokoš", "pokoriti"],    3, "wordplay",  ["oko"]],
+		["Krije se 'put'",        ["naputak", "disputa", "šaputati", "reputacija"], 3, "wordplay", ["put"]],
+		["Krije se 'dan'",        ["tjedan", "jedan", "slobodan", "vladanje"],    3, "wordplay",  ["dan"]],
+		["Krije se 'led'",        ["pogled", "izgled", "ugled", "poledica"],      3, "wordplay",  ["led"]],
+		["Krije se 'val'",        ["naval", "festival", "karneval", "zavaliti"],  3, "wordplay",  ["val"]],
+		["Krije se 'mak'",        ["zamak", "odmak", "umak", "pomak"],           3, "wordplay",  ["mak"]],
+		["Mogu se oguliti",       ["banana", "naranča", "luk", "bundeva"],       3, "semantic"],
+		["Idu u paru",            ["cipele", "skije", "obrve", "uši"],           3, "thematic"],
+		["Mogu 'procuriti'",      ["cijev", "vijest", "krov", "šator"],          3, "semantic"],
+		["Krije se 'rat'",        ["vrata", "karate", "pirat", "obrat"],         3, "wordplay",  ["rat"]],
+		["Mogu 'kapati'",         ["slavina", "svjeća", "med", "smola"],         3, "semantic"],
+		["Mogu 'poplaviti'",      ["podrum", "stan", "polje", "njiva"],          3, "semantic"],
 	]
 
 static func _green_pool() -> Array:
@@ -148,8 +165,9 @@ static func _green_pool() -> Array:
 		["Hrvatski nacionalni parkovi", ["Plitvice", "Kornati", "Brijuni", "Risnjak"],     1, "obvious"],
 		["Slavni hrvatski sportaši", ["Modrić", "Ivanišević", "Kostelić", "Šuker"],        1, "obvious"],
 		["Hrvatski književnici",   ["Krleža", "Marinković", "Šenoa", "Šimić"],             1, "obvious"],
-		["Hrvatski izumi",         ["kravata", "padobran", "mehanička olovka", "torpedo"], 1, "thematic"],
+		["Hrvatski izumi",         ["kravata", "padobran", "mehanička olovka", "torpedo"], 2, "thematic"],
 		["Mora nazvana po boji",   ["Crno", "Crveno", "Bijelo", "Žuto"],                   1, "wordplay"],
+		["Simboli ljubavi",        ["srce", "ruža", "golubica", "prsten"],                 1, "thematic", ["srce", "prsten"]],
 		# --- rank 2 ---
 		["Brz kao ___",            ["munja", "vjetar", "soko", "metak"],                   2, "wordplay"],
 		["Hrvatska jela",          ["sarma", "peka", "pašticada", "burek"],                2, "obvious"],
@@ -157,7 +175,7 @@ static func _green_pool() -> Array:
 		["Začini",                 ["papar", "sol", "cimet", "kurkuma"],                   2, "obvious"],
 		["Ptice selice",           ["roda", "lastavica", "čaplja", "kukavica"],            2, "obvious"],
 		["Rijeke Hrvatske",        ["Sava", "Drava", "Kupa", "Neretva"],                   2, "obvious"],
-		["Materijali",             ["drvo", "staklo", "plastika", "kamen"],                2, "obvious"],
+		["Materijali",             ["drvo", "staklo", "plastika", "kamen"],                1, "obvious"],
 		["Dijelovi automobila",    ["motor", "mjenjač", "kočnica", "volan"],               2, "obvious"],
 		["Dijelovi računala",      ["tipkovnica", "pisač", "zaslon", "procesor"],          2, "obvious"],
 		["Kontaktni sportovi",     ["ragbi", "judo", "hrvanje", "boks"],                   2, "obvious"],
@@ -179,38 +197,39 @@ static func _green_pool() -> Array:
 		["Atletske discipline",    ["sprint", "bacanje", "maraton", "štafeta"],            2, "obvious"],
 		["Vrste fotografije",      ["portret", "pejzaž", "makro", "reportaža"],            2, "thematic"],
 		["Ekološki pojmovi",       ["ekosustav", "biom", "biodiverzitet", "prehrambeni lanac"], 2, "thematic"],
-		["Ime i biljka",           ["Ruža", "Iris", "Ljubica", "Đurđica"],                 2, "wordplay"],
+		["Ime i biljka",           ["Ruža", "Iris", "Ljubica", "Đurđica"],                 3, "wordplay"],
+		["Žut kao ___",            ["limun", "kanarinac", "sumpor", "slama"],             2, "wordplay"],
 		["Tiho kao ___",           ["miš", "groblje", "pustinja", "sjena"],                2, "wordplay"],
 		["Mali ___",               ["princ", "prst", "oglasi", "ekran"],                   2, "wordplay"],
 		["Stari ___",              ["zavjet", "kontinent", "znanac", "most"],              2, "wordplay"],
 		["Divlji ___",             ["zapad", "mačka", "životinje", "konj"],                2, "wordplay"],
 		["Hladan kao ___",         ["led", "zmija", "stijena", "mramor"],                  2, "wordplay"],
 		["Završavaju na -ač",      ["pjevač", "igrač", "gledač", "slušač"],                2, "wordplay"],
-		["Mogu se otvoriti",       ["pivo", "račun", "restoran", "prozor"],                2, "wordplay"],
+		["Mogu se otvoriti",       ["pivo", "račun", "restoran", "prozor"],                3, "wordplay"],
 		["Završavaju na -lo",      ["šilo", "krilo", "sedlo", "vrelo"],                    2, "wordplay"],
 		["Završavaju na -ar",      ["zubar", "mlinar", "ribar", "slastičar"],              2, "wordplay"],
 		["Počinju s 'pra-'",       ["praotac", "prabaka", "pradomovina", "pradavni"],      2, "wordplay"],
-		["Mogu prethoditi: PUT",   ["dalek", "kratak", "asfaltni", "životni"],            2, "wordplay"],
+		["Mogu prethoditi: PUT",   ["dalek", "kratak", "asfaltni", "životni"],            3, "wordplay"],
 		["Načini da kažeš NE",     ["nipošto", "nikako", "baš ne", "nema šanse"],         2, "wordplay"],
 		["Načini da kažeš DA",     ["naravno", "svakako", "apsolutno", "definitivno"],    2, "wordplay"],
 		["Načini smijeha",         ["hihotati", "kikotati", "cerekati", "grohotati"],      2, "wordplay"],
-		["Načini gledanja",        ["zuriti", "škiljiti", "piljiti", "buljiti"],           2, "wordplay"],
+		["Načini gledanja",        ["zuriti", "škiljiti", "piljiti", "buljiti"],           3, "wordplay"],
 		# --- rank 3 ---
 		["Star kao ___",           ["Biblija", "svijet", "Metuzalem", "brda"],             3, "wordplay"],
-		["Homonimi (osnovni)",     ["rod", "rok", "klin", "kvaka"],                        3, "wordplay"],
+		["Homonimi (osnovni)",     ["rod", "rok", "klin", "kvaka"],                        3, "wordplay",  ["rok"]],
 		["Crni/a ___",             ["humor", "petak", "kutija", "ovca"],                   3, "wordplay"],
 		["Bijeli/a ___",           ["zastava", "laža", "šum", "ovratnik"],                 3, "wordplay"],
 		["Hrvatska prezimena",     ["Medvedović", "Orao", "Sokol", "Kunić"],               3, "wordplay"],
 		["Imaju 'nos'",            ["lokomotiva", "čarapa", "čizma", "Pinokio"],           3, "wordplay"],
 		["Imaju 'krilo'",          ["ptica", "vjetrenjača", "dvorac", "oltar"],            3, "wordplay"],
-		["Skrivena Mira",          ["mirakul", "admiral", "smiraj", "emirat"],             3, "wordplay"],
+		["Skrivena Mira",          ["mirakul", "admiral", "smiraj", "emirat"],             3, "wordplay",  ["mira"]],
 		["Glazbeni i drugi pojmovi", ["akord", "tempo", "kvarta", "pauza"],               3, "wordplay"],
 		["Izgleda kao engleska riječ",    ["sin", "pet", "tin", "no"],                     3, "wordplay"],
 		["Mogu biti 'težak'",          ["posao", "metal", "razgovor", "karakter"],      3, "semantic"],
 		["Mogu se 'pronaći'",           ["lijek", "rješenje", "izlaz", "razlog"],        3, "semantic"],
 		["Sinonimi za 'reći'",          ["kazati", "izjaviti", "priopćiti", "oglasiti"], 3, "semantic"],
 		["Mogu 'izaći'",                ["sunce", "novine", "film", "pjesma"],           3, "semantic"],
-		["Mogu 'pasti'",                ["kiša", "cijene", "vlada", "mrak"],             3, "semantic"],
+		["Mogu 'pasti'",                ["kiša", "cijene", "vlada", "mrak"],             3, "semantic",  ["kiša"]],
 		["Sinonimi za 'velik'",         ["ogroman", "silan", "golem", "masivan"],        3, "semantic"],
 		["Sinonimi za 'brz'",           ["hitar", "munjevit", "brzopotezno", "rapidan"], 3, "semantic"],
 		["Mogu 'rasti'",                ["stablo", "briga", "kamata", "cvijet"],         3, "semantic"],
@@ -230,14 +249,14 @@ static func _blue_pool() -> Array:
 		["Vrste mikroorganizama",  ["bakterija", "virus", "gljivica", "parazit"],          1, "thematic"],
 		["Anatomski organi",       ["jetra", "pluća", "bubreg", "slezena"],               1, "obvious"],
 		["Vrste zubi",             ["sjekutić", "očnjak", "pretkutnjak", "kutnjak"],       1, "obvious"],
-		["Krvne stanice",          ["eritrocit", "leukocit", "trombocit", "limfocit"],     1, "obvious"],
-		["Vrste tkiva",            ["epitelno", "mišićno", "vezivno", "živčano"],          1, "obvious"],
+		["Krvne stanice",          ["eritrocit", "leukocit", "trombocit", "limfocit"],     2, "obvious"],
+		["Vrste tkiva",            ["epitelno", "mišićno", "vezivno", "živčano"],          2, "obvious"],
 		["Vrste leća",             ["konkavna", "konveksna", "sferna", "asferična"],       1, "thematic"],
 		["Geometrijski pojmovi",   ["tangenta", "dijagonala", "perimetar", "površina"],   1, "obvious"],
 		["Vrste rečenica",         ["izjavna", "upitna", "usklična", "niječna"],           1, "obvious"],
 		["Hrvatski padeži",        ["nominativ", "genitiv", "dativ", "akuzativ"],          1, "obvious"],
 		["Glagolska vremena",      ["prezent", "perfekt", "aorist", "futur"],              1, "obvious"],
-		["Homonimi (lakši)",       ["list", "grad", "more", "pas"],                        1, "wordplay"],
+		["Homonimi (lakši)",       ["list", "grad", "more", "pas"],                        1, "wordplay",  ["list", "grad", "more", "pas"]],
 		# --- rank 2 ---
 		["Geološka razdoblja",     ["jura", "kreda", "silur", "devon"],                    2, "thematic"],
 		["Geografski pojmovi",     ["poluotok", "tjesnac", "fjord", "laguna"],             2, "thematic"],
@@ -265,23 +284,23 @@ static func _blue_pool() -> Array:
 		["Psihološke obrane",      ["potiskivanje", "projekcija", "racionalizacija", "sublimacija"], 2, "thematic"],
 		["Geološki procesi",       ["erozija", "sedimentacija", "vulkanizam", "tektonika"], 2, "thematic"],
 		["Statističke mjere",      ["prosjek", "medijan", "mod", "varijanca"],             2, "thematic"],
-		["Retoričke tehnike",      ["ethos", "pathos", "logos", "kairos"],                 2, "thematic"],
+		["Retoričke tehnike",      ["ethos", "pathos", "logos", "kairos"],                 3, "thematic"],
 		["Vrste diskursa",         ["narativni", "argumentativni", "opisni", "dijaloški"], 2, "thematic"],
-		["Može biti 'hladan/a'",   ["tuš", "rat", "znoj", "slučaj"],                       2, "wordplay"],
+		["Može biti 'hladan/a'",   ["tuš", "rat", "znoj", "slučaj"],                       3, "wordplay"],
 		["Pasti kao ___",          ["kruška", "bomba", "grom", "snop"],                    2, "wordplay"],
 		["Jak kao ___",            ["vol", "hrast", "div", "bik"],                         2, "wordplay"],
 		["Počinju s 'nad-'",       ["nadimak", "nadzor", "nadnica", "nadmudriti"],         2, "wordplay"],
-		["Mogu se slomiti",        ["val", "rekord", "tišina", "srce"],                    2, "wordplay"],
-		["Mogu se izgubiti",       ["strpljenje", "put", "smisao", "trag"],                2, "wordplay"],
-		["Slobodni/a ___",         ["pad", "udar", "stih", "tržište"],                     2, "wordplay"],
+		["Mogu se slomiti",        ["val", "rekord", "tišina", "srce"],                    3, "wordplay",  ["srce"]],
+		["Mogu se izgubiti",       ["strpljenje", "put", "smisao", "trag"],                3, "wordplay"],
+		["Slobodni/a ___",         ["pad", "udar", "stih", "tržište"],                     3, "wordplay"],
 		["Lagan kao ___",          ["pero", "oblak", "pahulja", "zrak"],                   2, "wordplay"],
 		["Tvrd kao ___",           ["granit", "dijamant", "čelik", "orah"],                2, "wordplay"],
-		["Mrtvi/a/o ___",          ["kut", "slovo", "priroda", "trka"],                    2, "wordplay"],
-		["Mogu biti visoki/e",     ["zgrada", "cijena", "temperatura", "ton"],             2, "wordplay"],
-		["Mogu se nositi",         ["teret", "haljina", "odgovornost", "dijete"],          2, "wordplay"],
+		["Mrtvi/a/o ___",          ["kut", "slovo", "priroda", "trka"],                    3, "wordplay"],
+		["Mogu biti visoki/e",     ["zgrada", "cijena", "temperatura", "ton"],             3, "wordplay"],
+		["Mogu se nositi",         ["teret", "haljina", "odgovornost", "dijete"],          3, "wordplay"],
 		["Duboki/a/o ___",         ["glas", "san", "žal", "dah"],                          2, "wordplay"],
-		["Sportski pojmovi s drugim značenjem", ["gol", "skok", "lopta", "koš"],          2, "wordplay"],
-		["Kartaške figure s drugim značenjem",  ["kralj", "dama", "pop", "as"],            2, "wordplay"],
+		["Sportski pojmovi s drugim značenjem", ["gol", "skok", "lopta", "koš"],          3, "wordplay"],
+		["Kartaške figure s drugim značenjem",  ["kralj", "dama", "pop", "as"],            3, "wordplay"],
 		["Počinju s 'pre-'",       ["prelaz", "pregled", "premijer", "predmet"],           2, "wordplay"],
 		["Počinju s 'pod-'",       ["podzemlje", "podsjetnik", "podloga", "podrum"],       2, "wordplay"],
 		["Suprotno s prefiksom 'ne-'", ["red", "mir", "prilika", "sklad"],                 2, "wordplay"],
@@ -289,6 +308,8 @@ static func _blue_pool() -> Array:
 		["Tvrda ___",              ["škola", "valuta", "disk", "riječ"],                   2, "wordplay"],
 		["Topla ___",              ["preporuka", "dobrodošlica", "fronta", "postelja"],    2, "wordplay"],
 		["Otvoreno ___",           ["nebo", "oči", "pismo", "prvenstvo"],                  2, "wordplay"],
+		["Mogu prethoditi: GRAD",  ["stari", "novi", "gornji", "donji"],                   2, "wordplay"],
+		["Mogu prethoditi: ŠKOLA", ["osnovna", "srednja", "glazbena", "plivačka"],         2, "wordplay"],
 		["Mogu prethoditi: STIL",  ["plivački", "pisani", "borbeni", "umjetnički"],        2, "wordplay"],
 		["Načini hodanja",         ["šuljati se", "gegati se", "koračati", "tabati"],      2, "wordplay"],
 		["Načini govora",          ["mrmljati", "šaptati", "galamiti", "brbljati"],        2, "wordplay"],
@@ -309,7 +330,7 @@ static func _blue_pool() -> Array:
 		["Germanizmi",             ["šalter", "šank", "štikla", "knedla"],                 3, "wordplay"],
 		["Talijanizmi",            ["pijaca", "špica", "pršut", "lanterna"],               3, "wordplay"],
 		["Šahovski potezi s drugim značenjem", ["rokada", "gambit", "matiranje", "remi"], 3, "wordplay"],
-		["Skriven Rim",            ["krimić", "grimasa", "primjerak", "rimovati"],         3, "wordplay"],
+		["Skriven Rim",            ["krimić", "grimasa", "primjerak", "rimovati"],         3, "wordplay",  ["rim"]],
 		["Imaju 'rupu'",           ["krafna", "tunel", "sito", "gumb"],                   3, "wordplay"],
 		["Mogu prethoditi: VAGON",        ["putnički", "teretni", "poštanski", "spavaći"],  3, "wordplay"],
 		["Mogu prethoditi: KARTA",        ["osobna", "autobusna", "zemljopisna", "sretna"], 3, "wordplay"],
@@ -324,6 +345,20 @@ static func _blue_pool() -> Array:
 		["Sinonimi za 'ići'",           ["kročiti", "gaziti", "putovati", "stupati"],    3, "semantic"],
 		["Mogu se 'primiti'",           ["nagrada", "gripa", "savjet", "poziv"],         3, "semantic"],
 		["Sinonimi za 'loš'",           ["katastrofalan", "užasan", "grozan", "strašan"],3, "semantic"],
+		["Mogu skupiti",                ["volju", "snagu", "misli", "dojmove"],          3, "semantic"],
+		["Može biti 'tamna'",           ["soba", "strana", "materija", "tajna"],         3, "semantic"],
+		["Mogu 'podnijeti'",            ["kaznu", "žalbu", "ostavku", "gubitak"],        3, "semantic"],
+		["Mogu 'popustiti'",            ["mraz", "čvor", "napad", "napetost"],           3, "semantic"],
+		["Sinonimi za 'nestati'",       ["iščeznuti", "ispariti", "izgubiti se", "rasplinuti se"], 3, "semantic"],
+		["Mogu 'isteći'",               ["ugovor", "viza", "jamstvo", "mandat"],         3, "semantic"],
+		["Može biti 'skrivena'",        ["agenda", "kamera", "poruka", "zamka"],         3, "semantic"],
+		["Mogu prethoditi: GLAS",       ["tihi", "prodoran", "izborni", "punomoćni"],    3, "wordplay"],
+		["Mogu prethoditi: VAL",        ["udarni", "zvučni", "plimni", "toplinski"],     3, "wordplay"],
+		["Mogu prethoditi: TOČKA",      ["mrtva", "prekretna", "polazna", "kulminacijska"], 3, "wordplay"],
+		["Mogu 'procvjetati'",          ["karijera", "ljubav", "kultura", "talent"],     3, "semantic"],
+		["Mogu se 'poklopiti'",         ["planovi", "interesi", "rokovi", "prilike"],    3, "semantic"],
+		["Skrivena Ara",               ["narav", "parabola", "garaža", "karantena"],    3, "wordplay",  ["ara"]],
+		["Mogu se 'zatvoriti'",        ["tema", "poglavlje", "istraga", "granica"],     3, "semantic"],
 	]
 
 static func _purple_pool() -> Array:
@@ -335,39 +370,39 @@ static func _purple_pool() -> Array:
 		["Vrste argumentacije",    ["dedukcija", "indukcija", "abdukcija", "analogija"],  1, "thematic"],
 		["Poetski žanrovi",        ["elegija", "oda", "sonet", "epigram"],                1, "obvious"],
 		["Epistemološki pojmovi",  ["znanje", "uvjerenje", "opravdanje", "istina"],       1, "thematic"],
-		["Latinski prefiks 'anti-'", ["antiteza", "antikrist", "antibiotik", "antipod"],  1, "thematic"],
-		["Latinski prefiks 'super-'", ["superlativ", "supermen", "superiornost", "supervizor"], 1, "thematic"],
-		["Latinski prefiks 'sub-'",  ["subverzija", "subordinacija", "subjekt", "subkultura"], 1, "thematic"],
-		["Latinski prefiks 'in-'",   ["inverzija", "intuicija", "indikator", "integracija"], 1, "thematic"],
+		["Latinski prefiks 'anti-'", ["antiteza", "antikrist", "antibiotik", "antipod"],  2, "thematic"],
+		["Latinski prefiks 'super-'", ["superlativ", "supermen", "superiornost", "supervizor"], 2, "thematic"],
+		["Latinski prefiks 'sub-'",  ["subverzija", "subordinacija", "subjekt", "subkultura"], 2, "thematic"],
+		["Latinski prefiks 'in-'",   ["inverzija", "intuicija", "indikator", "integracija"], 2, "thematic"],
 		["Grčki brojčani prefiks", ["monolog", "dijalog", "triatlon", "tetraedar"],       1, "obvious"],
 		["Tipovi rime",            ["parna", "ukrštena", "obgrljena", "slobodna"],        1, "obvious"],
 		["Vrste umjetničkih -izama", ["impresionizam", "kubizam", "futurizam", "dadaizam"], 1, "thematic"],
 		["Filozofska pitanja",     ["tko", "što", "kako", "zašto"],                       1, "thematic"],
-		["Kategorički imperativi", ["univerzalnost", "dostojanstvo", "autonomija", "samosvrha"], 1, "thematic"],
-		["Latinski prefiks 'trans-'", ["transcendencija", "transformacija", "transparentnost", "transmutacija"], 1, "thematic"],
-		["Grčki prefiks 'auto-'",  ["automatizam", "autobiografija", "autohtoni", "autostop"], 1, "thematic"],
+		["Kategorički imperativi", ["univerzalnost", "dostojanstvo", "autonomija", "samosvrha"], 3, "thematic"],
+		["Latinski prefiks 'trans-'", ["transcendencija", "transformacija", "transparentnost", "transmutacija"], 2, "thematic"],
+		["Grčki prefiks 'auto-'",  ["automatizam", "autobiografija", "autohtoni", "autostop"], 2, "thematic"],
 		["Crven kao ___",          ["rak", "cigla", "mak", "krv"],                        1, "wordplay"],
 		# --- rank 2 ---
 		["Vrste pamćenja",         ["epizodično", "semantičko", "proceduralno", "radno"], 2, "thematic"],
-		["Teorije uma",            ["funkcionalizam", "dualizam", "fizikalizam", "eliminativizam"], 2, "thematic"],
+		["Teorije uma",            ["funkcionalizam", "dualizam", "fizikalizam", "eliminativizam"], 3, "thematic"],
 		["Evolucijski mehanizmi",  ["selekcija", "mutacija", "drift", "migracija"],       2, "thematic"],
-		["Neurološki pojmovi",     ["sinapsa", "akson", "dendrit", "mijelin"],            2, "thematic"],
+		["Neurološki pojmovi",     ["sinapsa", "akson", "dendrit", "mijelin"],            3, "thematic"],
 		["Tipovi naracije",        ["sveznajući", "prvoličan", "drugoličan", "nepouzdan"], 2, "thematic"],
-		["Glazbene ljestvice",     ["dorska", "frigijska", "lidijska", "miksolidijska"],  2, "thematic"],
-		["Stilske figure",         ["hiperbola", "litota", "eufonija", "anadiploza"],     2, "thematic"],
-		["Kognitivne pristranosti",["potvrđivanje", "sidrenje", "retrospekcija", "dostupnost"], 2, "thematic"],
-		["Semiotički pojmovi",     ["znak", "označitelj", "označeno", "referent"],        2, "thematic"],
-		["Pravni pojmovi",         ["kazuistika", "precedent", "interpretacija", "supsidijarnost"], 2, "thematic"],
-		["Teorije pravde",         ["utilitarizam", "deontologija", "aretaika", "kontraktualizam"], 2, "thematic"],
+		["Glazbene ljestvice",     ["dorska", "frigijska", "lidijska", "miksolidijska"],  3, "thematic"],
+		["Stilske figure",         ["hiperbola", "litota", "eufonija", "anadiploza"],     3, "thematic"],
+		["Kognitivne pristranosti",["potvrđivanje", "sidrenje", "retrospekcija", "dostupnost"], 3, "thematic"],
+		["Semiotički pojmovi",     ["znak", "označitelj", "označeno", "referent"],        3, "thematic"],
+		["Pravni pojmovi",         ["kazuistika", "precedent", "interpretacija", "supsidijarnost"], 3, "thematic"],
+		["Teorije pravde",         ["utilitarizam", "deontologija", "aretaika", "kontraktualizam"], 3, "thematic"],
 		["Matematičke teoreme",    ["Pitagorin", "Fermatov", "Bayesov", "Eulerov"],       2, "thematic"],
 		["Matematička logika",     ["aksiom", "teorem", "dokaz", "lema"],                 2, "thematic"],
 		["Filozofija uma",         ["svjesnost", "namjernost", "kvalije", "subjektivnost"], 2, "thematic"],
 		["Vrste etike",            ["deontološka", "utilitaristička", "aretička", "situacijska"], 2, "thematic"],
 		["Logičke greške",         ["ad hominem", "slamnati", "lažna dilema", "kružno"],   2, "thematic"],
-		["Sintaktički nizovi",     ["parataksa", "hipotaksa", "sindeton", "asindeton"],    2, "thematic"],
-		["Tipovi paradoksa",       ["ontološki", "temporalni", "pragmatički", "semantički"], 2, "thematic"],
-		["Vrste motiva u književnosti", ["lajtmotiv", "dinamički", "statički", "naslovni"], 2, "thematic"],
-		["Vrste teorija",          ["preskriptivna", "deskriptivna", "normativna", "eksplanatorna"], 2, "thematic"],
+		["Sintaktički nizovi",     ["parataksa", "hipotaksa", "sindeton", "asindeton"],    3, "thematic"],
+		["Tipovi paradoksa",       ["ontološki", "temporalni", "pragmatički", "semantički"], 3, "thematic"],
+		["Vrste motiva u književnosti", ["lajtmotiv", "dinamički", "statički", "naslovni"], 3, "thematic"],
+		["Vrste teorija",          ["preskriptivna", "deskriptivna", "normativna", "eksplanatorna"], 3, "thematic"],
 		["___ kamen",              ["bubrežni", "žučni", "temeljni", "dragi"],            2, "wordplay"],
 		["Vruća ___",              ["tema", "linija", "čokolada", "točka"],               2, "wordplay"],
 		["Spavati kao ___",        ["klada", "beba", "top", "anđeo"],                     2, "wordplay"],
@@ -398,14 +433,14 @@ static func _purple_pool() -> Array:
 		["Hermeneutički pojmovi",  ["hermeneutički krug", "predrazumijevanje", "razumijevanje", "tekst"], 3, "thematic"],
 		["Teorije istine",         ["korespondencija", "koherencija", "pragmatizam", "deflacionizam"], 3, "thematic"],
 		["Vrste modaliteta",       ["nužnost", "mogućnost", "kontingentnost", "nemogućnost"], 3, "thematic"],
-		["Homonimi (teži)",        ["bit", "mast", "vez", "kosa"],                        3, "wordplay"],
+		["Homonimi (teži)",        ["bit", "mast", "vez", "kosa"],                        3, "wordplay",  ["kosa"]],
 		["Otok = grad",            ["Hvar", "Krk", "Rab", "Vis"],                         3, "wordplay"],
 		["Krije se broj",          ["jednorog", "dvoboj", "trijumf", "četveronožac"],     3, "wordplay"],
 		["Krije se nota",          ["dobar", "redar", "misija", "fakultet"],              3, "wordplay"],
 		["Suprotno s prefiksom 'ne-' (jaki)", ["sreća", "pravda", "volja", "moć"],        3, "wordplay"],
-		["Skrivena Ana",           ["banana", "kanal", "ranac", "fontana"],               3, "wordplay"],
-		["Skrivena Iva",           ["divan", "kriva", "privatan", "perspektiva"],         3, "wordplay"],
-		["Skrivena Pula",          ["kapula", "populacija", "kopula", "manipulacija"],    3, "wordplay"],
+		["Skrivena Ana",           ["banana", "kanal", "ranac", "fontana"],               3, "wordplay",  ["ana"]],
+		["Skrivena Iva",           ["divan", "kriva", "privatan", "perspektiva"],         3, "wordplay",  ["iva"]],
+		["Skrivena Pula",          ["kapula", "populacija", "kopula", "manipulacija"],    3, "wordplay",  ["pula"]],
 		["Tri ili više značenja",  ["luk", "vrata", "oko", "ključ"],                      3, "wordplay"],
 		["Hrvatski i engleski — različito značenje", ["kola", "sok", "ten", "sat"],      3, "wordplay"],
 		["Padežni homonimi",       ["sela", "knjige", "žene", "priče"],                    3, "wordplay"],
@@ -418,6 +453,12 @@ static func _purple_pool() -> Array:
 		["Mogu prethoditi: OKO",          ["ptičje", "magareće", "orlovsko", "sokolovo"],  3, "wordplay"],
 		["Završavaju na -log",            ["katalog", "pedagog", "biolog", "analog"],      3, "wordplay"],
 		["Sinonimi za 'lopov'",         ["kradljivac", "razbojnik", "pljačkaš", "tat"],  3, "semantic"],
+		["Skrivena Una",               ["luna", "tuna", "fortuna", "tribuna"],            3, "wordplay",  ["una"]],
+		["Skrivena Eva",               ["nevaljao", "prevara", "revans", "sevap"],        3, "wordplay",  ["eva"]],
+		["Skriven Ivan",               ["naivan", "kivan", "šivanje", "prošivan"],        3, "wordplay",  ["ivan"]],
+		["Skrivena Ema",               ["premaz", "njemački", "emblema", "kinematograf"], 3, "wordplay",  ["ema"]],
+		["Skrivena Ela",               ["ćelav", "pelar", "relaksacija", "korelacija"],   3, "wordplay",  ["ela"]],
+		["Krije se osa",               ["kosač", "glosar", "dosadan", "vosak"],           3, "wordplay",  ["osa"]],
 	]
 
 static func get_single_puzzle(yesterday_seed: int = -1) -> Puzzle:
@@ -442,13 +483,16 @@ static func get_single_puzzle(yesterday_seed: int = -1) -> Puzzle:
 
 	var cats: Array = []
 	var used_subtypes: Dictionary = {}
+	var used_conflict_tags: Dictionary = {}
 	for p in 4:
 		var entry: Array = _weighted_pick(pool_buckets[p], weights)
-		if not _frazem_ok(entry[0], used_subtypes) or excluded.has(entry[0]):
-			entry = _try_swap(pool_buckets[p], entry, used_subtypes, excluded)
+		if not _frazem_ok(entry[0], used_subtypes) or excluded.has(entry[0]) or not _conflict_ok(entry, used_conflict_tags):
+			entry = _try_swap(pool_buckets[p], entry, used_subtypes, excluded, used_conflict_tags)
 		var subtype := _get_frazem_subtype(entry[0])
 		if subtype != "":
 			used_subtypes[subtype] = true
+		for tag in _get_conflict_tags(entry):
+			used_conflict_tags[tag] = true
 		var cat: Category = Category.new(entry[0], _to_typed(entry[1]), diffs[p])
 		cat.rank       = entry[2] if entry.size() > 2 else 2
 		cat.complexity = entry[3] if entry.size() > 3 else "thematic"
@@ -481,13 +525,16 @@ static func get_puzzles() -> Array:
 		var weights: Array = RANK_WEIGHTS[i]
 		var cats: Array = []
 		var used_subtypes: Dictionary = {}
+		var used_conflict_tags: Dictionary = {}
 		for p in 4:
 			var entry: Array = _weighted_pick(pool_buckets[p], weights)
-			if not _frazem_ok(entry[0], used_subtypes):
-				entry = _try_swap(pool_buckets[p], entry, used_subtypes, {})
+			if not _frazem_ok(entry[0], used_subtypes) or not _conflict_ok(entry, used_conflict_tags):
+				entry = _try_swap(pool_buckets[p], entry, used_subtypes, {}, used_conflict_tags)
 			var subtype := _get_frazem_subtype(entry[0])
 			if subtype != "":
 				used_subtypes[subtype] = true
+			for tag in _get_conflict_tags(entry):
+				used_conflict_tags[tag] = true
 			var cat: Category = Category.new(entry[0], _to_typed(entry[1]), diffs[p])
 			cat.rank       = entry[2] if entry.size() > 2 else 2
 			cat.complexity = entry[3] if entry.size() > 3 else "thematic"
@@ -538,21 +585,41 @@ static func _frazem_ok(name: String, used_subtypes: Dictionary) -> bool:
 	var subtype := _get_frazem_subtype(name)
 	return subtype == "" or not used_subtypes.has(subtype)
 
-# Swaps a rejected entry for one that satisfies both the frazem subtype cap and
-# the adjacent-day exclusion set. Relaxes exclusion first, then all constraints,
-# before accepting the original as last resort.
-static func _try_swap(buckets: Dictionary, rejected: Array, used_subtypes: Dictionary, excluded: Dictionary) -> Array:
+# Entry format: [name, words, rank, complexity, conflict_tags?]
+# conflict_tags is an optional Array[String] of root labels (e.g. "zlat").
+# Two entries sharing any tag are excluded from appearing in the same puzzle.
+static func _get_conflict_tags(entry: Array) -> Array:
+	return entry[4] if entry.size() > 4 else []
+
+static func _conflict_ok(entry: Array, used_tags: Dictionary) -> bool:
+	for tag in _get_conflict_tags(entry):
+		if used_tags.has(tag):
+			return false
+	return true
+
+# Swaps a rejected entry for one that satisfies the frazem subtype cap,
+# conflict tag constraints, and the adjacent-day exclusion set.
+# Relaxes constraints progressively before accepting the original as last resort.
+static func _try_swap(buckets: Dictionary, rejected: Array, used_subtypes: Dictionary, excluded: Dictionary, used_tags: Dictionary = {}) -> Array:
 	var rank: int = rejected[2] if rejected.size() > 2 else 2
 	buckets[rank].push_back(rejected)
 
 	for r in [1, 2, 3]:
 		for i in range(buckets[r].size() - 1, -1, -1):
 			var cand: Array = buckets[r][i]
-			if _frazem_ok(cand[0], used_subtypes) and not excluded.has(cand[0]):
+			if _frazem_ok(cand[0], used_subtypes) and not excluded.has(cand[0]) and _conflict_ok(cand, used_tags):
 				buckets[r].remove_at(i)
 				return cand
 
-	# Relax exclusion — still enforce subtype cap
+	# Relax exclusion — still enforce subtype cap and conflict tags
+	for r in [1, 2, 3]:
+		for i in range(buckets[r].size() - 1, -1, -1):
+			var cand: Array = buckets[r][i]
+			if _frazem_ok(cand[0], used_subtypes) and _conflict_ok(cand, used_tags):
+				buckets[r].remove_at(i)
+				return cand
+
+	# Relax conflict tags — still enforce subtype cap
 	for r in [1, 2, 3]:
 		for i in range(buckets[r].size() - 1, -1, -1):
 			var cand: Array = buckets[r][i]
@@ -687,7 +754,22 @@ static func _category_extras() -> Dictionary:
 		"Mogu slijediti: TIHI":                  "Sve mogu slijediti pridjev TIHI",
 		"Završavaju dijelom tijela":             "Svaka riječ završava nazivom dijela tijela",
 		"Glagoli za 'promatrati'":               "Sve znače pozorno gledati",
-		"Krije se broj (lakši)":					 "U svakoj se krije broj: STO, TISUĆU, DVA, JED",
+		"Krije se broj (lakši)":                     "U svakoj se krije broj: STO, TISUĆU, DVA, JED",
+		"Mogu biti 'kiseli'":                        "Sve može biti kiselo — doslovno ili u prenesenom smislu",
+		"Mogu 'zujati'":                             "Sve može zujati — insekti, uređaji, struja",
+		"Mogu 'prsnuti'":                            "Sve može prsnuti — fizički ili od smijeha",
+		"Krije se 'oko'":                            "U svakoj se riječi krije OKO",
+		"Krije se 'put'":                            "U svakoj se riječi krije PUT",
+		"Krije se 'dan'":                            "U svakoj se riječi krije DAN",
+		"Krije se 'led'":                            "U svakoj se riječi krije LED",
+		"Krije se 'val'":                            "U svakoj se riječi krije VAL",
+		"Krije se 'mak'":                            "U svakoj se riječi krije MAK",
+		"Mogu se oguliti":                           "Sve se može oguliti ili oljuštiti",
+		"Idu u paru":                                "Sve dolazi u paru — uvijek dvoje",
+		"Mogu 'procuriti'":                          "Sve može procuriti — doslovno ili u prenesenom smislu",
+		"Krije se 'rat'":                            "U svakoj se riječi krije RAT",
+		"Mogu 'kapati'":                             "Sve kapa — slavina, svjeća, med i smola",
+		"Mogu 'poplaviti'":                          "Sve može poplaviti — doslovno",
 		"Krije se dio tijela":					 "U svakoj se krije dio tijela",
 		"Krije se broj (teži)":					 "U svakoj se krije broj: OSAM, DEVET, SEDAM, DESET",
 		"I stvar i osjećaj":					 "Fizička težina i emocionalni teret — oboje odjednom",
@@ -696,6 +778,21 @@ static func _category_extras() -> Dictionary:
 		"Završavaju na -gram":					 "Sve završavaju na -gram",
 		"Završavaju na -log":					 "Sve završavaju na -log",
 		"Palindromi":                            "Riječi koje se jednako čitaju s obje strane",
+		"Skrivena Una":                          "U svakoj se riječi krije ime UNA",
+		"Skrivena Eva":                          "U svakoj se riječi krije ime EVA",
+		"Skriven Ivan":                          "U svakoj se riječi krije ime IVAN",
+		"Skrivena Ema":                          "U svakoj se riječi krije ime EMA",
+		"Skrivena Ela":                          "U svakoj se riječi krije ime ELA",
+		"Može biti 'skrivena'":                  "Sve mogu biti skrivene — u različitim kontekstima",
+		"Mogu prethoditi: GLAS":                 "Sve mogu prethoditi imenici GLAS (glas = voice ili vote)",
+		"Krije se osa":                          "U svakoj se riječi krije insekt OSA",
+		"Mogu prethoditi: VAL":                  "Sve mogu prethoditi imenici VAL",
+		"Mogu prethoditi: TOČKA":               "Sve mogu prethoditi imenici TOČKA",
+		"Mogu 'procvjetati'":                   "Sve može procvjetati — u prenesenom smislu",
+		"Mogu se 'poklopiti'":                  "Sve se može poklopiti — vremenski ili sadržajno",
+		"Skrivena Ara":                          "U svakoj se riječi krije ime ARA",
+		"Mogu se 'zatvoriti'":                   "Sve se može zatvoriti — u različitim kontekstima",
+		"Mogu skupiti":                          "Sve se može skupiti — u sebi ili oko sebe",
 	}
 
 static func _to_typed(arr: Array) -> Array[String]:
