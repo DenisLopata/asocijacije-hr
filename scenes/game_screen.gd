@@ -1293,7 +1293,7 @@ func _show_name_picker() -> void:
 	var dim: ColorRect = _make_dim()
 	_overlay_tag = "name_picker"
 
-	var panel: PanelContainer = _make_overlay_panel(dim, 640)
+	var panel: PanelContainer = _make_overlay_panel(dim, 680)
 	_overlay = panel
 	var vbox: VBoxContainer = _make_overlay_vbox(panel, 14)
 
@@ -1345,7 +1345,7 @@ func _show_name_picker() -> void:
 	]
 
 	var kbd_vbox := VBoxContainer.new()
-	kbd_vbox.add_theme_constant_override("separation", 8)
+	kbd_vbox.add_theme_constant_override("separation", 10)
 	vbox.add_child(kbd_vbox)
 
 	for row_chars in KEY_ROWS:
@@ -1365,7 +1365,7 @@ func _show_name_picker() -> void:
 			var is_spc: bool = ch == " "
 
 			# Key height is uniform; width expands to fill row
-			btn.custom_minimum_size = Vector2(0, 58)
+			btn.custom_minimum_size = Vector2(0, 66)
 			btn.size_flags_horizontal = Control.SIZE_EXPAND_FILL
 
 			if is_fn:
@@ -1531,7 +1531,7 @@ func _show_submitting_overlay(player_name: String, score: int, time_sec: float,
 func _show_leaderboard_overlay(mode: String, date_str: String, my_uid: String, my_score: int = -1, _my_time: float = 0.0) -> void:
 	var dim := _make_dim()
 	_overlay_tag = "leaderboard"
-	var panel := _make_overlay_panel(dim, 620)
+	var panel := _make_overlay_panel(dim, 680)
 	_overlay = panel
 	var vbox  := _make_overlay_vbox(panel, 12)
 
@@ -1584,7 +1584,7 @@ func _show_leaderboard_overlay(mode: String, date_str: String, my_uid: String, m
 		vbox.add_child(empty_lbl)
 	else:
 		var scroll := ScrollContainer.new()
-		scroll.custom_minimum_size = Vector2(0, 320)
+		scroll.custom_minimum_size = Vector2(0, 440)
 		scroll.horizontal_scroll_mode = ScrollContainer.SCROLL_MODE_DISABLED
 		vbox.add_child(scroll)
 
@@ -1616,7 +1616,8 @@ func _show_leaderboard_overlay(mode: String, date_str: String, my_uid: String, m
 
 	_add_separator(vbox)
 	var close_btn := _make_ghost_btn("Zatvori")
-	close_btn.size_flags_horizontal = Control.SIZE_SHRINK_CENTER
+	close_btn.theme_type_variation = "GhostButton"
+	close_btn.size_flags_horizontal = Control.SIZE_EXPAND_FILL
 	close_btn.pressed.connect(func() -> void:
 		_close_overlay()
 		_go_to_menu())
