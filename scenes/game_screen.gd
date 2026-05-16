@@ -67,7 +67,12 @@ func _icon(icon_name: String) -> String:
 		"menu":      0xE5D2,
 		"star":      0xF09A,
 		"cancel":    0xE888,
-		"undo":      0xE166,
+		"undo":           0xE166,
+		"favorite":       0xE87D,
+		"favorite_border":0xE87E,
+		"local_fire":     0xE149,
+		"timer":          0xE425,
+		"leaderboard":    0xF20B,
 	}
 	return char(CP.get(icon_name, 0x3F))
 
@@ -147,7 +152,7 @@ var _is_daily: bool = false
 var _is_five_daily: bool = false
 
 var _grid: GridContainer
-var _mistake_dots: Array[Panel] = []
+var _mistake_dots: Array[Label] = []
 var _submit_btn: Button
 var _deselect_btn: Button
 var _shuffle_btn: Button
@@ -314,7 +319,7 @@ func _build_ui() -> void:
 	var margin: MarginContainer = MarginContainer.new()
 	margin.add_theme_constant_override("margin_left",   28)
 	margin.add_theme_constant_override("margin_right",  28)
-	margin.add_theme_constant_override("margin_top",    52)
+	margin.add_theme_constant_override("margin_top",    32)
 	margin.add_theme_constant_override("margin_bottom", 20)
 	margin.set_anchors_and_offsets_preset(Control.PRESET_FULL_RECT)
 	add_child(margin)
@@ -455,22 +460,18 @@ func _build_feedback_area(parent: VBoxContainer) -> void:
 func _build_mistakes_row(parent: VBoxContainer) -> void:
 	var row: HBoxContainer = HBoxContainer.new()
 	row.alignment = BoxContainer.ALIGNMENT_CENTER
-	row.add_theme_constant_override("separation", 12)
+	row.add_theme_constant_override("separation", 6)
 	parent.add_child(row)
 	_mistakes_row_node = row
 
-	var lbl: Label = Label.new()
-	lbl.text = "Preostale greške:"
-	lbl.theme_type_variation = "SubtitleLabel"
-	row.add_child(lbl)
-
 	for i in GameState.MAX_MISTAKES:
-		var dot: Panel = Panel.new()
-		dot.custom_minimum_size = Vector2(38, 38)
-		var style: StyleBoxFlat = _rounded_box(C_MISTAKE_ON, 16)
-		dot.add_theme_stylebox_override("panel", style)
-		row.add_child(dot)
-		_mistake_dots.append(dot)
+		var heart: Label = Label.new()
+		heart.text = _icon("favorite")
+		heart.add_theme_font_override("font", _icon_font())
+		heart.add_theme_font_size_override("font_size", 32)
+		heart.add_theme_color_override("font_color", C_MISTAKE_ON)
+		row.add_child(heart)
+		_mistake_dots.append(heart)
 
 func _build_action_buttons(parent: VBoxContainer) -> void:
 	var vbox: VBoxContainer = VBoxContainer.new()
@@ -580,7 +581,7 @@ func _load_puzzle(index: int) -> void:
 
 	# Stagger-in animation for mistake dots (#13)
 	for i in GameState.MAX_MISTAKES:
-		var dot: Panel = _mistake_dots[i]
+		var dot: Label = _mistake_dots[i]
 		dot.modulate     = Color(1, 1, 1, 0)
 		dot.scale        = Vector2(0.6, 0.6)
 		dot.pivot_offset = dot.size / 2.0
@@ -760,16 +761,9 @@ func _rounded_box(color: Color, radius: int) -> StyleBoxFlat:
 	s.content_margin_bottom = 4
 	return s
 
-func _set_dot_active(dot: Panel, active: bool) -> void:
-	var color: Color = C_MISTAKE_ON if active else C_MISTAKE_OFF
-	var style: StyleBoxFlat = _rounded_box(color, 11)
-	if active:
-		style.border_width_left   = 2
-		style.border_width_right  = 2
-		style.border_width_top    = 2
-		style.border_width_bottom = 2
-		style.border_color = C_MISTAKE_ON.lightened(0.3)
-	dot.add_theme_stylebox_override("panel", style)
+func _set_dot_active(dot: Label, active: bool) -> void:
+	dot.text = _icon("favorite") if active else _icon("favorite_border")
+	dot.add_theme_color_override("font_color", C_MISTAKE_ON if active else C_MISTAKE_OFF)
 
 func _make_font(weight: int) -> FontVariation:
 	var key := "outfit_%d" % weight
@@ -980,14 +974,16 @@ func _on_guess_wrong(words: Array[String], one_away: bool) -> void:  # (#5: use 
 	for i in GameState.MAX_MISTAKES:
 		_set_dot_active(_mistake_dots[i], i >= used)
 
-	# Pop animation on the depleted dot
+	# Shake + shrink animation on the depleted heart
 	if used > 0 and used <= _mistake_dots.size():
-		var depleted: Panel = _mistake_dots[used - 1]
+		var depleted: Label = _mistake_dots[used - 1]
 		depleted.pivot_offset = depleted.size / 2.0
-		var pop: Tween = create_tween().set_parallel(true)
-		pop.tween_property(depleted, "scale", Vector2(1.5, 1.5), ANIM_DOT_POP) \
-			.set_trans(Tween.TRANS_BACK).set_ease(Tween.EASE_OUT)
-		await pop.finished
+		var shake: Tween = create_tween().set_trans(Tween.TRANS_SINE)
+		shake.tween_property(depleted, "position:x", depleted.position.x - 6, ANIM_DOT_POP * 0.25)
+		shake.tween_property(depleted, "position:x", depleted.position.x + 6, ANIM_DOT_POP * 0.25)
+		shake.tween_property(depleted, "position:x", depleted.position.x - 4, ANIM_DOT_POP * 0.25)
+		shake.tween_property(depleted, "position:x", depleted.position.x,     ANIM_DOT_POP * 0.25)
+		await shake.finished
 		var shrink: Tween = create_tween()
 		shrink.tween_property(depleted, "scale", Vector2.ONE, ANIM_DOT_SHRINK)
 
