@@ -314,7 +314,7 @@ func _build_ui() -> void:
 	var margin: MarginContainer = MarginContainer.new()
 	margin.add_theme_constant_override("margin_left",   28)
 	margin.add_theme_constant_override("margin_right",  28)
-	margin.add_theme_constant_override("margin_top",    20)
+	margin.add_theme_constant_override("margin_top",    52)
 	margin.add_theme_constant_override("margin_bottom", 20)
 	margin.set_anchors_and_offsets_preset(Control.PRESET_FULL_RECT)
 	add_child(margin)
@@ -1074,7 +1074,10 @@ func _record_session_score(score: int) -> void:
 	_update_session_label()
 
 func _update_session_label() -> void:
-	_session_label.text = "Rekord: %d" % _session_best if _session_best > 0 else ""
+	if _is_five_daily:
+		_session_label.text = "%d / %d" % [_current_puzzle_index + 1, _puzzles.size()]
+	else:
+		_session_label.text = "Rekord: %d" % _session_best if _session_best > 0 else ""
 
 # ── Solved rows ────────────────────────────────────────────────────────────
 func _add_solved_row(category: PuzzleData.Category) -> void:

@@ -174,8 +174,9 @@ func _build_ui() -> void:
 	vbox.custom_minimum_size = Vector2(480, 0)
 	center.add_child(vbox)
 
+	_build_spacer(vbox, 32)
 	_build_logo(vbox)
-	_build_spacer(vbox, 48)
+	_build_spacer(vbox, 56)
 	_build_buttons(vbox)
 	_build_spacer(vbox, 16)
 
@@ -194,7 +195,7 @@ func _build_logo(parent: VBoxContainer) -> void:
 	title.text = "ASOCIJACIJE"
 	title.theme_type_variation = "TitleLabel"
 	title.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
-	title.add_theme_font_size_override("font_size", 60)
+	title.add_theme_font_size_override("font_size", 72)
 	title.add_theme_font_override("font", _make_font(800))
 	parent.add_child(title)
 
@@ -212,7 +213,7 @@ func _build_logo(parent: VBoxContainer) -> void:
 	subtitle.text = "Grupirajte 16 pojmova u 4 kategorije"
 	subtitle.theme_type_variation = "SubtitleLabel"
 	subtitle.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
-	subtitle.add_theme_font_override("font", _make_font(300))
+	subtitle.add_theme_font_override("font", _make_font(400))
 	parent.add_child(subtitle)
 
 func _build_buttons(parent: VBoxContainer) -> void:
@@ -375,7 +376,7 @@ func _make_menu_btn(label: String, subtitle: String, style: String) -> Button:
 		main_lbl.text = label
 		main_lbl.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
 		main_lbl.add_theme_font_override("font", _make_font(700))
-		main_lbl.add_theme_font_size_override("font_size", 22)
+		main_lbl.add_theme_font_size_override("font_size", 26)
 		main_lbl.mouse_filter = Control.MOUSE_FILTER_IGNORE
 		vbox.add_child(main_lbl)
 
@@ -383,7 +384,7 @@ func _make_menu_btn(label: String, subtitle: String, style: String) -> Button:
 		sub_lbl.text = subtitle
 		sub_lbl.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
 		sub_lbl.add_theme_font_override("font", _mixed_font(400))
-		sub_lbl.add_theme_font_size_override("font_size", 17)
+		sub_lbl.add_theme_font_size_override("font_size", 20)
 		sub_lbl.add_theme_color_override("font_color", C_TEXT.darkened(0.15))
 		sub_lbl.mouse_filter = Control.MOUSE_FILTER_IGNORE
 		vbox.add_child(sub_lbl)
@@ -393,7 +394,7 @@ func _make_menu_btn(label: String, subtitle: String, style: String) -> Button:
 	else:
 		btn.text = label
 		btn.add_theme_font_override("font", _make_font(700))
-		btn.add_theme_font_size_override("font_size", 22)
+		btn.add_theme_font_size_override("font_size", 26)
 
 	# Micro-bounce
 	btn.button_down.connect(func() -> void:
@@ -478,7 +479,7 @@ func _on_settings() -> void:
 	fs_row.add_theme_constant_override("separation", 10)
 	vbox.add_child(fs_row)
 
-	for pair in [["Malo", 14], ["Srednje", 18], ["Veliko", 22]]:
+	for pair in [["Malo", 16], ["Srednje", 20], ["Veliko", 26]]:
 		var fs_btn: Button = _make_small_btn(pair[0])
 		var size_val: int = pair[1]
 		fs_btn.pressed.connect(func() -> void: SaveManager.save_prefs(size_val))
