@@ -12,7 +12,7 @@ const ANIM_PRESS_RISE  := 0.13
 const C_BG         := Color(0.07, 0.08, 0.11)
 const C_SURFACE    := Color(0.13, 0.14, 0.18)
 const C_TEXT       := Color(0.96, 0.96, 0.98)
-const C_TEXT_DIM   := Color(0.55, 0.56, 0.62)
+const C_TEXT_DIM   := Color(0.68, 0.69, 0.74)
 const C_ACCENT     := Color(0.45, 0.55, 1.00)
 const C_WIN        := Color(0.30, 0.85, 0.55)
 const C_SUBMIT_ON  := Color(0.28, 0.60, 0.42)
@@ -163,20 +163,28 @@ func _build_ui() -> void:
 	vignette.material = mat
 	add_child(vignette)
 
-	# Centered content
+	# Content margin — horizontal padding so buttons don't touch screen edges
+	var margin: MarginContainer = MarginContainer.new()
+	margin.set_anchors_and_offsets_preset(Control.PRESET_FULL_RECT)
+	margin.add_theme_constant_override("margin_left",   32)
+	margin.add_theme_constant_override("margin_right",  32)
+	margin.add_theme_constant_override("margin_top",    0)
+	margin.add_theme_constant_override("margin_bottom", 64)
+	add_child(margin)
+
 	var center: CenterContainer = CenterContainer.new()
 	center.set_anchors_and_offsets_preset(Control.PRESET_FULL_RECT)
-	add_child(center)
+	margin.add_child(center)
 
 	var vbox: VBoxContainer = VBoxContainer.new()
 	vbox.alignment = BoxContainer.ALIGNMENT_CENTER
 	vbox.add_theme_constant_override("separation", 0)
-	vbox.custom_minimum_size = Vector2(480, 0)
+	vbox.size_flags_horizontal = Control.SIZE_EXPAND_FILL
 	center.add_child(vbox)
 
-	_build_spacer(vbox, 32)
+	_build_spacer(vbox, 48)
 	_build_logo(vbox)
-	_build_spacer(vbox, 56)
+	_build_spacer(vbox, 48)
 	_build_buttons(vbox)
 	_build_spacer(vbox, 16)
 
@@ -214,6 +222,7 @@ func _build_logo(parent: VBoxContainer) -> void:
 	subtitle.theme_type_variation = "SubtitleLabel"
 	subtitle.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
 	subtitle.add_theme_font_override("font", _make_font(400))
+	subtitle.add_theme_color_override("font_color", C_TEXT)
 	parent.add_child(subtitle)
 
 func _build_buttons(parent: VBoxContainer) -> void:
@@ -256,7 +265,7 @@ func _build_buttons(parent: VBoxContainer) -> void:
 				"style":  "five",
 				"action": func() -> void: _go_to_five(five_seed, false),
 			})
-		var five_sub := "%s  Pet slagalica, jedna teža od druge  •  %s" % [_icon("quiz"), date_label]
+		var five_sub := "%s  Pet slagalica  •  %s" % [_icon("quiz"), date_label]
 		if five_streak >= 2:
 			five_sub += "  •  %s %d" % [_icon("local_fire"), five_streak]
 		btns.append({
@@ -302,10 +311,10 @@ func _build_buttons(parent: VBoxContainer) -> void:
 func _build_bottom_bar() -> void:
 	var bar: HBoxContainer = HBoxContainer.new()
 	bar.set_anchors_and_offsets_preset(Control.PRESET_BOTTOM_WIDE)
-	bar.offset_top    = -52
-	bar.offset_bottom = -10
-	bar.offset_left   = 28
-	bar.offset_right  = -28
+	bar.offset_top    = -60
+	bar.offset_bottom = -16
+	bar.offset_left   = 32
+	bar.offset_right  = -32
 	bar.alignment     = BoxContainer.ALIGNMENT_BEGIN
 	add_child(bar)
 
@@ -342,6 +351,8 @@ func _make_menu_btn(label: String, subtitle: String, style: String) -> Button:
 		_:            bg_color = C_SURFACE
 
 	var normal: StyleBoxFlat = _rounded_box(bg_color, RADIUS_BTN)
+	normal.content_margin_left  = 20
+	normal.content_margin_right = 20
 	if style == "continue":
 		normal.border_width_left   = 1
 		normal.border_width_right  = 1
@@ -370,6 +381,7 @@ func _make_menu_btn(label: String, subtitle: String, style: String) -> Button:
 		vbox.alignment = BoxContainer.ALIGNMENT_CENTER
 		vbox.set_anchors_and_offsets_preset(Control.PRESET_FULL_RECT)
 		vbox.mouse_filter = Control.MOUSE_FILTER_IGNORE
+		vbox.clip_contents = true
 		btn.add_child(vbox)
 
 		var main_lbl: Label = Label.new()
@@ -383,9 +395,10 @@ func _make_menu_btn(label: String, subtitle: String, style: String) -> Button:
 		var sub_lbl: Label = Label.new()
 		sub_lbl.text = subtitle
 		sub_lbl.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
+		sub_lbl.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
 		sub_lbl.add_theme_font_override("font", _mixed_font(400))
-		sub_lbl.add_theme_font_size_override("font_size", 20)
-		sub_lbl.add_theme_color_override("font_color", C_TEXT.darkened(0.15))
+		sub_lbl.add_theme_font_size_override("font_size", 18)
+		sub_lbl.add_theme_color_override("font_color", C_TEXT_DIM)
 		sub_lbl.mouse_filter = Control.MOUSE_FILTER_IGNORE
 		vbox.add_child(sub_lbl)
 
@@ -532,6 +545,8 @@ func _make_dim() -> ColorRect:
 func _make_overlay_panel(parent: Control, min_width: int) -> PanelContainer:
 	var center: CenterContainer = CenterContainer.new()
 	center.set_anchors_and_offsets_preset(Control.PRESET_FULL_RECT)
+	center.offset_left  = 16
+	center.offset_right = -16
 	parent.add_child(center)
 
 	var panel: PanelContainer = PanelContainer.new()
@@ -680,7 +695,7 @@ func _show_leaderboard_overlay_menu(mode: String, date_str: String) -> void:
 	var dim := _make_dim()
 	_overlay = dim
 	_overlay_tag = "leaderboard"
-	var panel := _make_overlay_panel(dim, 620)
+	var panel := _make_overlay_panel(dim, 480)
 	var vbox  := _make_overlay_vbox(panel, 12)
 
 	var mode_label := "Dnevni izazov" if mode == "daily" else "Dnevnih 5"
