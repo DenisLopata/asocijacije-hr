@@ -21,12 +21,12 @@ const BASE_POINTS: Dictionary = {
 	PuzzleData.Difficulty.BLUE:    300,
 	PuzzleData.Difficulty.PURPLE:  400,
 }
-const MISTAKE_MULTIPLIERS: Array = [1.0, 0.75, 0.50, 0.25, 0.0]
-const HINT_MULTIPLIERS: Array  = [1.0, 0.75, 0.50, 0.25]
+const MISTAKE_MULTIPLIERS: Array[float] = [1.0, 0.75, 0.50, 0.25, 0.0]
+const HINT_MULTIPLIERS: Array[float]    = [1.0, 0.75, 0.50, 0.25]
 
 var puzzle: PuzzleData.Puzzle
 var selected_words: Array[String] = []
-var solved_categories: Array = []
+var solved_categories: Array[PuzzleData.Category] = []
 var mistakes_remaining: int = MAX_MISTAKES
 var hints_remaining: int = MAX_HINTS
 var hints_used: int = 0

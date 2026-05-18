@@ -14,6 +14,8 @@ scripts/
   puzzle_data.gd     — Puzzle pool (~298 categories) + generation logic + difficulty colours
   game_state.gd      — Turn-by-turn state machine (selection, validation, scoring)
   save_manager.gd    — Persistent progress via ConfigFile
+  ui_helpers.gd      — Shared static utilities: palette constants, style helpers, leaderboard row builder, overlay helpers, fmt_time, format_date_label
+  firebase_client.gd — Autoload; Firebase anonymous auth, Firestore REST, JS SDK bridge on Web
 assets/
   fonts/
     Outfit-VariableFont_wght.ttf          — Primary text font (variable, weights 300–800)
@@ -58,7 +60,7 @@ Three modes, all accessible from the main menu:
 
 ### Overlays in game_screen.gd
 
-`game_screen.gd` (~1960 lines) contains all game UI including several full-screen overlays:
+`game_screen.gd` (~1892 lines) contains all game UI including several full-screen overlays:
 
 - **Summary overlay** (`_show_summary`) — per-puzzle stats, total score/time, colour-coded guess history grid. On the last puzzle, saves daily result and clears session save immediately. Nav row and action buttons are hidden while summary is visible to prevent mid-summary navigation corrupting scores.
 - **Name picker overlay** (`_show_name_picker`) — on-screen keyboard with Croatian alphabet (A–Ž) + digits + hyphen + space; 4–10 chars; OK disabled until 4 chars entered. Daily modes include a "Preskoči ljestvicu" secondary button.
@@ -107,10 +109,21 @@ Two fonts are used together:
 
 The theme default font (`game_theme.tres`) is a `FontVariation` sub-resource wrapping Outfit at weight 400 — not a raw `FontFile`. This ensures anything falling through to the theme default renders correctly.
 
-Both `main_menu.gd` and `game_screen.gd` have their own `_icon`, `_icon_font`, `_mixed_font`, `_make_font` helpers since they are separate scenes.
+Both `main_menu.gd` and `game_screen.gd` have their own `_icon`, `_icon_font`, `_mixed_font`, `_make_font` helpers since they are separate scenes. Both use a `_font_cache: Dictionary` to memoize `FontVariation` objects — never call `load()` on every font use.
 
 ### Palette
-All colours are constants at the top of each file prefixed `C_`. Do not hardcode colours anywhere else. `main_menu.gd` has its own palette (mirrors game_screen with additions for button styles: `C_BTN_PRIMARY`, `C_BTN_DAILY`, `C_BTN_FIVE`, `C_BTN_DONE`).
+All colours are constants at the top of each file prefixed `C_`. Do not hardcode colours anywhere else.
+
+Five shared colours are **single-sourced** in `UIHelpers` and aliased in both screen files:
+```gdscript
+const C_SURFACE  := UIHelpers.C_SURFACE   # Color(0.13, 0.14, 0.18)
+const C_TEXT     := UIHelpers.C_TEXT      # Color(0.96, 0.96, 0.98)
+const C_TEXT_DIM := UIHelpers.C_TEXT_DIM  # Color(0.68, 0.69, 0.74)
+const C_ACCENT   := UIHelpers.C_ACCENT    # Color(0.45, 0.55, 1.00)
+const C_WIN      := UIHelpers.C_WIN       # Color(0.30, 0.85, 0.55)
+```
+
+`main_menu.gd` adds button-style colours not shared with game_screen: `C_BTN_PRIMARY`, `C_BTN_DAILY`, `C_BTN_FIVE`, `C_BTN_DONE`.
 
 ### Animations
 All tweens use `pivot_offset = size / 2.0` before scaling so nodes scale from center, not top-left. Every scale animation needs this — forgetting it causes the node to expand to the right.
@@ -184,7 +197,10 @@ Never mix patterns. `"Mogu se otvoriti"` not `"Može se 'otvoriti'"`. `"Završav
 - `load_streak(mode) -> int` — returns current streak count, or 0 if expired (last play was before yesterday). Mode is `"daily"` or `"five"`.
 - `save_prefs(tile_font_size: int, best_score: int = -1)` — persists settings overlay choices; `best_score` is optional.
 - `save_best_score(score: int)` — writes the all-time best Nova igra score to prefs.
-- `save_puzzle_start(time: float)` / `load_puzzle_start() -> float` — checkpoint for per-puzzle elapsed time across scene reloads.
+- `was_submitted(mode, date_str) -> bool` / `mark_submitted(mode, date_str)` — dedup guard; stored in prefs under section `submitted`, keyed `mode_YYYY-MM-DD`.
+- `load_firebase_creds() -> Dictionary` / `save_firebase_creds(uid, refresh_token)` — persists anonymous auth tokens in prefs under section `firebase`.
+- `get_yesterday(date_str) -> String` — returns the ISO date string for the day before `date_str`.
+- All section names are `SECTION_*` constants (`SECTION_SESSION`, `SECTION_STATE`, `SECTION_PROGRESS`, `SECTION_DISPLAY`, `SECTION_STATS`, `SECTION_FIREBASE`, `SECTION_SUBMITTED`, `SECTION_DAILY_SINGLE`, `SECTION_DAILY_FIVE`). Never use raw string literals for section names.
 
 ## CI/CD pipeline
 
@@ -203,11 +219,12 @@ Push to `main` triggers `.github/workflows/deploy.yml`:
 - **Config:** `firebase.json` — sets COOP/COEP headers required for Godot's WebAssembly
 - **Firestore:** live — `leaderboard` collection, anonymous auth, composite index on `mode/date/score/time`
 - **`scripts/firebase_client.gd`** — autoload (`FirebaseClient`). Handles anonymous auth with refresh-token persistence, score submission with token-expiry retry, leaderboard reads with session cache, and player rank via aggregation query.
-  - `submit_score(player_name, score, time_sec, mode, date_str, puzzle_seed) -> bool` — writes to Firestore; retries once on 401; calls `mark_submitted` on success
+  - `submit_score(player_name, score, time_sec, mode, date_str, puzzle_seed) -> bool` — writes to Firestore; retries once on token expiry; calls `SaveManager.mark_submitted` on success
   - `fetch_leaderboard(mode, date_str) -> Array` — cached per session; each entry: `{name, score, time, uid}`
   - `fetch_player_rank(mode, date_str, score) -> int` — count aggregation; returns rank or -1 on failure
-  - `was_submitted(mode, date_str) -> bool` / `mark_submitted(...)` — dedup guard in prefs
   - `get_last_error() -> String` — `"auth_failed"` or `"network_error"` after a failed submit
+  - `get_last_fetch_error() -> String` — same for fetch failures
+  - Submission dedup (`was_submitted` / `mark_submitted`) lives in `SaveManager`, not here
 - **Known limitation:** no server-side score validation — a client can POST arbitrary values. Accepted risk for now.
 
 ## Pool validator
@@ -235,7 +252,7 @@ Exit code 0 = no errors; exit code 1 = at least one error. Run this before commi
 - **Scale pivot:** Always set `pivot_offset = size / 2.0` before a scale tween. Godot's default pivot is top-left.
 - **Web export index.png:** Godot generates this from the project icon, not the boot splash. The CI pipeline patches it manually — do not remove that step.
 - **COOP/COEP headers:** Required for SharedArrayBuffer (Godot threads). Firebase `firebase.json` sets these. Without them the game won't load.
-- **Session save scope:** `_is_daily` (Dnevni izazov) never saves session — single puzzle, no resume needed. `_is_five_daily` (Dnevnih 5) DOES save session after each correct guess, wrong guess, and hint solve, including `puzzle_times`, `puzzle_scores`, and `puzzle_start_time`. The "Nastavi Dnevnih 5" button on the menu appears when a Dnevnih 5 session is in progress. Nova igra session save is planned but not yet active ("Beskraj" placeholder).
+- **Session save scope:** `_is_daily` (Dnevni izazov) never saves session — single puzzle, no resume needed. `_is_five_daily` (Dnevnih 5) DOES save session after each correct guess, wrong guess, and hint solve, including `puzzle_times`, `puzzle_scores`, and `puzzle_start_time`. The "Nastavi Dnevnih 5" button on the menu appears when a Dnevnih 5 session is in progress. Nova igra session save is planned but not yet active ("Beskraj" placeholder). `save_puzzle_start` / `load_puzzle_start` no longer exist — puzzle start time is held in memory only (`_puzzle_start_time`).
 - **Puzzle data word conflicts:** Words must be globally unique across the entire pool, not just within a puzzle. The `_assert_no_word_overlap` debug check only fires per-puzzle at runtime — it won't catch a word appearing in two different pool categories. When adding categories, manually verify new words don't appear elsewhere in the pool.
 - **Frazem-template extras:** Never add an extra hint to a frazem-template category (`"___"` in name) or a `"Mogu se / Imaju"` category — the name is self-explanatory and the hint would give away the answer. Only add extras for hidden-element or non-obvious mechanic categories (e.g. `"Skrivena životinja"`, `"Turcizmi"`, `"Otok = grad"`).
 - **Shaders must be inline strings:** Do NOT use `preload("res://shaders/*.gdshader")` — Godot's headless web export does not include standalone `.gdshader` files in the `.pck` without a full editor-generated import cache, which CI does not have. All shaders live as `const _SHADER_*_SRC := "..."` string constants in `game_screen.gd`, applied via `Shader.new(); shader.code = _SHADER_*_SRC`. The `.gdshader` files in `shaders/` are kept as readable source references only.

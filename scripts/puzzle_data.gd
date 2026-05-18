@@ -44,11 +44,11 @@ class Category:
 
 class Puzzle:
 	var title: String
-	var categories: Array
+	var categories: Array[PuzzleData.Category]
 
 	func _init(p_title: String, p_categories: Array) -> void:
 		title = p_title
-		categories = p_categories
+		categories.assign(p_categories)
 
 	func all_words() -> Array[String]:
 		var result: Array[String] = []

@@ -3,12 +3,23 @@ class_name SaveManager
 const SAVE_PATH  := "user://save.cfg"
 const PREFS_PATH := "user://prefs.cfg"
 
+# Section key constants — use these instead of raw string literals.
+const SECTION_DAILY_SINGLE := "daily_single"
+const SECTION_DAILY_FIVE   := "daily_five"
+const SECTION_FIREBASE     := "firebase"
+const SECTION_SUBMITTED    := "submitted"
+const SECTION_DISPLAY      := "display"
+const SECTION_STATS        := "stats"
+const SECTION_SESSION      := "session"
+const SECTION_PROGRESS     := "progress"
+const SECTION_STATE        := "state"
+
 # ── Session save/load ──────────────────────────────────────────────────────
 static func save_session(puzzles: Array, current_index: int, state: GameState,
 		puzzle_times: Array = [], puzzle_scores: Array = [], puzzle_start_time: float = 0.0) -> void:
 	var cfg := ConfigFile.new()
-	cfg.set_value("session", "current_index", current_index)
-	cfg.set_value("session", "puzzle_count", puzzles.size())
+	cfg.set_value(SECTION_SESSION,  "current_index", current_index)
+	cfg.set_value(SECTION_SESSION,  "puzzle_count",  puzzles.size())
 
 	for i in puzzles.size():
 		var puzzle: PuzzleData.Puzzle = puzzles[i]
@@ -23,16 +34,16 @@ static func save_session(puzzles: Array, current_index: int, state: GameState,
 	var solved_names: Array = []
 	for cat in state.solved_categories:
 		solved_names.append(cat.name)
-	cfg.set_value("state", "solved_names",       solved_names)
-	cfg.set_value("state", "mistakes_remaining", state.mistakes_remaining)
-	cfg.set_value("state", "hints_remaining",    state.hints_remaining)
-	cfg.set_value("state", "hints_used",         state.hints_used)
-	cfg.set_value("state", "hint_multiplier",    state.hint_multiplier)
-	cfg.set_value("state", "score",              state.score)
+	cfg.set_value(SECTION_STATE, "solved_names",       solved_names)
+	cfg.set_value(SECTION_STATE, "mistakes_remaining", state.mistakes_remaining)
+	cfg.set_value(SECTION_STATE, "hints_remaining",    state.hints_remaining)
+	cfg.set_value(SECTION_STATE, "hints_used",         state.hints_used)
+	cfg.set_value(SECTION_STATE, "hint_multiplier",    state.hint_multiplier)
+	cfg.set_value(SECTION_STATE, "score",              state.score)
 
-	cfg.set_value("progress", "puzzle_times",      puzzle_times)
-	cfg.set_value("progress", "puzzle_scores",     puzzle_scores)
-	cfg.set_value("progress", "puzzle_start_time", puzzle_start_time)
+	cfg.set_value(SECTION_PROGRESS, "puzzle_times",      puzzle_times)
+	cfg.set_value(SECTION_PROGRESS, "puzzle_scores",     puzzle_scores)
+	cfg.set_value(SECTION_PROGRESS, "puzzle_start_time", puzzle_start_time)
 	cfg.save(SAVE_PATH)
 
 static func load_session() -> Dictionary:
@@ -40,7 +51,7 @@ static func load_session() -> Dictionary:
 	if cfg.load(SAVE_PATH) != OK:
 		return {}
 
-	var puzzle_count: int = cfg.get_value("session", "puzzle_count", 0)
+	var puzzle_count: int = cfg.get_value(SECTION_SESSION, "puzzle_count", 0)
 	if puzzle_count == 0:
 		return {}
 
@@ -69,23 +80,25 @@ static func load_session() -> Dictionary:
 
 	return {
 		"puzzles":       puzzles,
-		"current_index": cfg.get_value("session", "current_index", 0),
+		"current_index": cfg.get_value(SECTION_SESSION,  "current_index",      0),
 		"state": {
-			"solved_names":       cfg.get_value("state", "solved_names",       []),
-			"mistakes_remaining": cfg.get_value("state", "mistakes_remaining", GameState.MAX_MISTAKES),
-			"hints_remaining":    cfg.get_value("state", "hints_remaining",    GameState.MAX_HINTS),
-			"hints_used":         cfg.get_value("state", "hints_used",         0),
-			"hint_multiplier":    cfg.get_value("state", "hint_multiplier",    1.0),
-			"score":              cfg.get_value("state", "score",              0),
+			"solved_names":       cfg.get_value(SECTION_STATE, "solved_names",       []),
+			"mistakes_remaining": cfg.get_value(SECTION_STATE, "mistakes_remaining", GameState.MAX_MISTAKES),
+			"hints_remaining":    cfg.get_value(SECTION_STATE, "hints_remaining",    GameState.MAX_HINTS),
+			"hints_used":         cfg.get_value(SECTION_STATE, "hints_used",         0),
+			"hint_multiplier":    cfg.get_value(SECTION_STATE, "hint_multiplier",    1.0),
+			"score":              cfg.get_value(SECTION_STATE, "score",              0),
 		},
-		"puzzle_times":       cfg.get_value("progress", "puzzle_times",      []),
-		"puzzle_scores":      cfg.get_value("progress", "puzzle_scores",     []),
-		"puzzle_start_time":  cfg.get_value("progress", "puzzle_start_time", 0.0),
+		"puzzle_times":       cfg.get_value(SECTION_PROGRESS, "puzzle_times",      []),
+		"puzzle_scores":      cfg.get_value(SECTION_PROGRESS, "puzzle_scores",     []),
+		"puzzle_start_time":  cfg.get_value(SECTION_PROGRESS, "puzzle_start_time", 0.0),
 	}
 
 static func clear_save() -> void:
 	if has_save():
-		DirAccess.remove_absolute(SAVE_PATH)
+		var err := DirAccess.remove_absolute(SAVE_PATH)
+		if err != OK:
+			push_warning("SaveManager: failed to remove save file err=%d" % err)
 
 static func has_save() -> bool:
 	return FileAccess.file_exists(SAVE_PATH)
@@ -99,42 +112,63 @@ static func _cfg_load(cfg: ConfigFile, path: String) -> void:
 static func save_prefs(tile_font_size: int, best_score: int = -1) -> void:
 	var cfg := ConfigFile.new()
 	_cfg_load(cfg, PREFS_PATH)
-	cfg.set_value("display", "tile_font_size", tile_font_size)
+	cfg.set_value(SECTION_DISPLAY, "tile_font_size", tile_font_size)
 	if best_score >= 0:
-		cfg.set_value("stats", "best_score", best_score)
+		cfg.set_value(SECTION_STATS, "best_score", best_score)
 	cfg.save(PREFS_PATH)
 
 static func save_best_score(score: int) -> void:
 	var cfg := ConfigFile.new()
 	_cfg_load(cfg, PREFS_PATH)
-	var current: int = cfg.get_value("stats", "best_score", 0)
+	var current: int = cfg.get_value(SECTION_STATS, "best_score", 0)
 	if score > current:
-		cfg.set_value("stats", "best_score", score)
+		cfg.set_value(SECTION_STATS, "best_score", score)
 		cfg.save(PREFS_PATH)
 
-static func save_puzzle_start(timestamp: float) -> void:
-	var cfg := ConfigFile.new()
-	_cfg_load(cfg, SAVE_PATH)
-	cfg.set_value("progress", "puzzle_start_time", timestamp)
-	cfg.save(SAVE_PATH)
-
-static func load_puzzle_start() -> float:
-	var cfg := ConfigFile.new()
-	if cfg.load(SAVE_PATH) != OK:
-		return 0.0
-	return cfg.get_value("progress", "puzzle_start_time", 0.0)
-
 static func save_daily_result(date_str: String, score: int, time_sec: float) -> void:
-	_write_result("daily_single", date_str, score, time_sec)
+	_write_result(SECTION_DAILY_SINGLE, date_str, score, time_sec)
 
 static func load_daily_result(date_str: String) -> Dictionary:
-	return _read_result("daily_single", date_str)
+	return _read_result(SECTION_DAILY_SINGLE, date_str)
 
 static func save_five_result(date_str: String, score: int, time_sec: float) -> void:
-	_write_result("daily_five", date_str, score, time_sec)
+	_write_result(SECTION_DAILY_FIVE, date_str, score, time_sec)
 
 static func load_five_result(date_str: String) -> Dictionary:
-	return _read_result("daily_five", date_str)
+	return _read_result(SECTION_DAILY_FIVE, date_str)
+
+# ── Firebase credentials (auth token persistence) ─────────────────────────────
+static func load_firebase_creds() -> Dictionary:
+	var cfg := ConfigFile.new()
+	_cfg_load(cfg, PREFS_PATH)
+	if not cfg.has_section(SECTION_FIREBASE):
+		return {}
+	return {
+		"uid":           cfg.get_value(SECTION_FIREBASE, "uid", ""),
+		"refresh_token": cfg.get_value(SECTION_FIREBASE, "refresh_token", ""),
+	}
+
+static func save_firebase_creds(uid: String, refresh_token: String) -> void:
+	var cfg := ConfigFile.new()
+	_cfg_load(cfg, PREFS_PATH)
+	cfg.set_value(SECTION_FIREBASE, "uid",           uid)
+	cfg.set_value(SECTION_FIREBASE, "refresh_token", refresh_token)
+	cfg.save(PREFS_PATH)
+
+# ── Submission dedup (delegated from FirebaseClient) ──────────────────────────
+static func was_submitted(mode: String, date_str: String) -> bool:
+	var cfg := ConfigFile.new()
+	if cfg.load(PREFS_PATH) != OK:
+		return false
+	return cfg.get_value(SECTION_SUBMITTED, mode + "_" + date_str, false)
+
+static func mark_submitted(mode: String, date_str: String) -> void:
+	var cfg := ConfigFile.new()
+	var err := cfg.load(PREFS_PATH)
+	if err != OK and err != ERR_FILE_NOT_FOUND:
+		push_warning("SaveManager: prefs load error %d in mark_submitted" % err)
+	cfg.set_value(SECTION_SUBMITTED, mode + "_" + date_str, true)
+	cfg.save(PREFS_PATH)
 
 static func _write_result(section: String, date_str: String, score: int, time_sec: float) -> void:
 	var cfg := ConfigFile.new()
@@ -160,7 +194,7 @@ static func get_today() -> Dictionary:
 	var daily_seed: int = d["year"] * 10000 + d["month"] * 100 + d["day"]
 	return {
 		"date_str":   "%d-%02d-%02d" % [d["year"], d["month"], d["day"]],
-		"date_label": "%d.%02d.%d."  % [d["day"], d["month"], d["year"]],
+		"date_label": "%02d.%02d.%d." % [d["day"], d["month"], d["year"]],
 		"daily_seed": daily_seed,
 		"five_seed":  daily_seed + 1,
 	}
@@ -173,7 +207,7 @@ static func update_streak(date_str: String, mode: String = "daily") -> void:
 	var count: int   = cfg.get_value(section, "count", 0)
 	if last == date_str:
 		return  # already counted today
-	var yesterday := _yesterday(date_str)
+	var yesterday := get_yesterday(date_str)
 	count = count + 1 if last == yesterday else 1
 	cfg.set_value(section, "last_date", date_str)
 	cfg.set_value(section, "count", count)
@@ -188,12 +222,12 @@ static func load_streak(mode: String = "daily") -> int:
 	if last.is_empty():
 		return 0
 	var today: String = get_today()["date_str"]
-	var yesterday := _yesterday(today)
+	var yesterday := get_yesterday(today)
 	if last != today and last != yesterday:
 		return 0  # streak expired
 	return cfg.get_value(section, "count", 0)
 
-static func _yesterday(date_str: String) -> String:
+static func get_yesterday(date_str: String) -> String:
 	var parts := date_str.split("-")
 	var unix := Time.get_unix_time_from_datetime_dict({
 		"year": int(parts[0]), "month": int(parts[1]), "day": int(parts[2]),
@@ -207,6 +241,6 @@ static func load_prefs() -> Dictionary:
 	if cfg.load(PREFS_PATH) != OK:
 		return {"tile_font_size": 17, "best_score": 0}
 	return {
-		"tile_font_size": cfg.get_value("display", "tile_font_size", 17),
-		"best_score":     cfg.get_value("stats",   "best_score",     0),
+		"tile_font_size": cfg.get_value(SECTION_DISPLAY, "tile_font_size", 17),
+		"best_score":     cfg.get_value(SECTION_STATS,   "best_score",     0),
 	}

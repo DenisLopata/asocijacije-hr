@@ -9,13 +9,15 @@ const ANIM_PRESS_DIP   := 0.07
 const ANIM_PRESS_RISE  := 0.13
 
 # ── Palette (mirrors game_screen) ──────────────────────────────────────────
-const C_BG         := Color(0.07, 0.08, 0.11)
-const C_SURFACE    := Color(0.13, 0.14, 0.18)
-const C_TEXT       := Color(0.96, 0.96, 0.98)
-const C_TEXT_DIM   := Color(0.68, 0.69, 0.74)
-const C_ACCENT     := Color(0.45, 0.55, 1.00)
-const C_WIN        := Color(0.30, 0.85, 0.55)
-const C_SUBMIT_ON  := Color(0.28, 0.60, 0.42)
+# Shared palette — C_SURFACE/TEXT/TEXT_DIM/ACCENT/WIN are single-sourced from UIHelpers.
+const C_SURFACE    := UIHelpers.C_SURFACE
+const C_TEXT       := UIHelpers.C_TEXT
+const C_TEXT_DIM   := UIHelpers.C_TEXT_DIM
+const C_ACCENT     := UIHelpers.C_ACCENT
+const C_WIN        := UIHelpers.C_WIN
+# Screen-specific colours.
+const C_BG          := Color(0.07, 0.08, 0.11)
+const C_SUBMIT_ON   := Color(0.28, 0.60, 0.42)
 const C_BTN_PRIMARY := Color(0.28, 0.35, 0.65)
 const C_BTN_DAILY   := Color(0.50, 0.32, 0.68)
 const C_BTN_FIVE    := Color(0.10, 0.32, 0.38)
@@ -41,16 +43,23 @@ func _icon(icon_name: String) -> String:
 	return char(CP.get(icon_name, 0x3F))
 
 func _icon_font() -> FontFile:
-	return load(ICON_FONT_PATH) as FontFile
+	if "icon" not in _font_cache:
+		_font_cache["icon"] = load(ICON_FONT_PATH) as FontFile
+	return _font_cache["icon"] as FontFile
 
 func _mixed_font(weight: int) -> FontVariation:
-	var fv := FontVariation.new()
-	fv.base_font = load(FONT_PATH)
-	fv.variation_opentype = {"wght": weight}
-	var icon_f := _icon_font()
-	if icon_f:
-		fv.fallbacks = [icon_f]
-	return fv
+	var key := "mixed_%d" % weight
+	if key not in _font_cache:
+		var fv := FontVariation.new()
+		if "outfit_base" not in _font_cache:
+			_font_cache["outfit_base"] = load(FONT_PATH)
+		fv.base_font = _font_cache["outfit_base"] as FontFile
+		fv.variation_opentype = {"wght": weight}
+		var icon_f := _icon_font()
+		if icon_f:
+			fv.fallbacks = [icon_f]
+		_font_cache[key] = fv
+	return _font_cache[key] as FontVariation
 
 const VIGNETTE_SHADER := "
 shader_type canvas_item;
@@ -91,6 +100,7 @@ void fragment() {
 var _overlay: Control = null
 var _overlay_tag: String = ""
 var _fade_rect: ColorRect
+var _font_cache: Dictionary = {}
 
 # ── Boot ───────────────────────────────────────────────────────────────────
 func _unhandled_input(event: InputEvent) -> void:
@@ -101,19 +111,20 @@ func _unhandled_input(event: InputEvent) -> void:
 			var date_str: String = SaveManager.get_today()["date_str"]
 			var cfg := ConfigFile.new()
 			cfg.load(SaveManager.PREFS_PATH)
-			for sec in ["daily_single", "daily_five"]:
+			for sec in [SaveManager.SECTION_DAILY_SINGLE, SaveManager.SECTION_DAILY_FIVE]:
 				if cfg.has_section(sec):
 					cfg.erase_section_key(sec, date_str + "_score")
 					cfg.erase_section_key(sec, date_str + "_time")
-			if cfg.has_section("submitted"):
+			if cfg.has_section(SaveManager.SECTION_SUBMITTED):
 				for key in ["daily_" + date_str, "five_" + date_str]:
 					if cfg.has_section_key("submitted", key):
 						cfg.erase_section_key("submitted", key)
 			cfg.save(SaveManager.PREFS_PATH)
-			print("[DEBUG] Cleared daily results for ", date_str)
+			SaveManager.clear_save()
+			print("[DEBUG] Cleared daily results + Dnevnih 5 session for ", date_str)
 			get_tree().reload_current_scene()
 		if event.keycode == KEY_S and event.ctrl_pressed and event.shift_pressed:
-			var yesterday: String = SaveManager._yesterday(SaveManager.get_today()["date_str"])
+			var yesterday: String = SaveManager.get_yesterday(SaveManager.get_today()["date_str"])
 			var cfg := ConfigFile.new()
 			cfg.load(SaveManager.PREFS_PATH)
 			for sec in ["streak_daily", "streak_five"]:
@@ -259,21 +270,34 @@ func _build_buttons(parent: VBoxContainer) -> void:
 			var idx: int = saved.get("current_index", 0)
 			var total: int = saved["puzzles"].size() if saved.has("puzzles") else 5
 			var score: int = saved["state"].get("score", 0) if saved.has("state") else 0
+			for s in saved.get("puzzle_scores", []):
+				score += int(s)
 			btns.append({
 				"label":  "Nastavi Dnevnih 5",
 				"sub":    "%s  Slagalica %d/%d  •  %d bodova" % [_icon("timer"), idx + 1, total, score],
 				"style":  "five",
 				"action": func() -> void: _go_to_five(five_seed, false),
 			})
-		var five_sub := "%s  Pet slagalica  •  %s" % [_icon("quiz"), date_label]
-		if five_streak >= 2:
-			five_sub += "  •  %s %d" % [_icon("local_fire"), five_streak]
-		btns.append({
-			"label":  "Dnevnih 5",
-			"sub":    five_sub,
-			"style":  "five",
-			"action": func() -> void: _go_to_five(five_seed, true),
-		})
+			# Secondary "fresh start" button — ghost style so resume reads as primary;
+			# pressing it pops a confirm so an accidental tap doesn't nuke the session.
+			var saved_idx: int = idx
+			var saved_total: int = total
+			btns.append({
+				"label":  "Dnevnih 5",
+				"sub":    "Započni iznova",
+				"style":  "ghost",
+				"action": func() -> void: _confirm_fresh_five(five_seed, saved_idx, saved_total),
+			})
+		else:
+			var five_sub := "%s  Pet slagalica  •  %s" % [_icon("quiz"), date_label]
+			if five_streak >= 2:
+				five_sub += "  •  %s %d" % [_icon("local_fire"), five_streak]
+			btns.append({
+				"label":  "Dnevnih 5",
+				"sub":    five_sub,
+				"style":  "five",
+				"action": func() -> void: _go_to_five(five_seed, true),
+			})
 
 	btns.append({
 		"label":    "Beskraj",
@@ -446,6 +470,55 @@ func _go_to_daily(p_seed: int) -> void:
 	await _fade_to_black()
 	get_tree().change_scene_to_file("res://scenes/game_screen.tscn")
 
+func _confirm_fresh_five(p_seed: int, saved_idx: int, saved_total: int) -> void:
+	if _overlay and is_instance_valid(_overlay):
+		_close_overlay()
+
+	var dim: ColorRect = _make_dim()
+	_overlay = dim
+	_overlay_tag = "confirm_fresh_five"
+
+	var panel: PanelContainer = _make_overlay_panel(dim, 380)
+	var vbox: VBoxContainer = _make_overlay_vbox(panel, 14)
+
+	var title_lbl: Label = Label.new()
+	title_lbl.text = "Pokreni novu igru?"
+	title_lbl.theme_type_variation = "TitleLabel"
+	title_lbl.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
+	title_lbl.add_theme_font_size_override("font_size", 22)
+	title_lbl.add_theme_font_override("font", _make_font(700))
+	vbox.add_child(title_lbl)
+
+	var msg_lbl: Label = Label.new()
+	msg_lbl.text = "Trenutni napredak (%d/%d) bit će obrisan." % [saved_idx + 1, saved_total]
+	msg_lbl.theme_type_variation = "SubtitleLabel"
+	msg_lbl.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
+	msg_lbl.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
+	vbox.add_child(msg_lbl)
+
+	_add_separator(vbox)
+
+	var row: HBoxContainer = HBoxContainer.new()
+	row.add_theme_constant_override("separation", 14)
+	row.alignment = BoxContainer.ALIGNMENT_CENTER
+	vbox.add_child(row)
+
+	var cancel_btn: Button = _make_small_btn("Odustani")
+	cancel_btn.custom_minimum_size = Vector2(140, 48)
+	cancel_btn.size_flags_horizontal = Control.SIZE_EXPAND_FILL
+	cancel_btn.pressed.connect(_close_overlay)
+	row.add_child(cancel_btn)
+
+	var confirm_btn: Button = _make_small_btn("Pokreni iznova")
+	confirm_btn.custom_minimum_size = Vector2(140, 48)
+	confirm_btn.size_flags_horizontal = Control.SIZE_EXPAND_FILL
+	confirm_btn.pressed.connect(func() -> void:
+		_close_overlay()
+		_go_to_five(p_seed, true))
+	row.add_child(confirm_btn)
+
+	_animate_overlay_in(dim, panel)
+
 func _go_to_five(p_seed: int, clear_save: bool) -> void:
 	if clear_save:
 		SaveManager.clear_save()
@@ -543,45 +616,16 @@ func _make_dim() -> ColorRect:
 	return dim
 
 func _make_overlay_panel(parent: Control, min_width: int) -> PanelContainer:
-	var center: CenterContainer = CenterContainer.new()
-	center.set_anchors_and_offsets_preset(Control.PRESET_FULL_RECT)
-	center.offset_left  = 16
-	center.offset_right = -16
-	parent.add_child(center)
-
-	var panel: PanelContainer = PanelContainer.new()
-	var style: StyleBoxFlat = _rounded_box(C_SURFACE, 20)
-	style.content_margin_left   = 32
-	style.content_margin_right  = 32
-	style.content_margin_top    = 28
-	style.content_margin_bottom = 28
-	panel.add_theme_stylebox_override("panel", style)
-	panel.custom_minimum_size = Vector2(min_width, 0)
-	center.add_child(panel)
-	return panel
+	return UIHelpers.make_overlay_panel(parent, min_width, 16)
 
 func _make_overlay_vbox(parent: Control, separation: int) -> VBoxContainer:
-	var vbox: VBoxContainer = VBoxContainer.new()
-	vbox.add_theme_constant_override("separation", separation)
-	parent.add_child(vbox)
-	return vbox
+	return UIHelpers.make_overlay_vbox(parent, separation)
 
 func _add_separator(parent: VBoxContainer) -> void:
-	var sep: ColorRect = ColorRect.new()
-	sep.color = Color(1, 1, 1, 0.08)
-	sep.custom_minimum_size = Vector2(0, 1)
-	parent.add_child(sep)
+	UIHelpers.add_separator(parent)
 
 func _animate_overlay_in(dim: Control, panel: Control) -> void:
-	panel.pivot_offset = panel.size / 2.0
-	panel.scale        = Vector2(0.88, 0.88)
-	panel.modulate     = Color(1, 1, 1, 0)
-	dim.modulate   = Color(1, 1, 1, 0)
-	var t: Tween = create_tween().set_parallel(true)
-	t.tween_property(dim,   "modulate", Color.WHITE, ANIM_OVERLAY_IN)
-	t.tween_property(panel, "scale",    Vector2.ONE, ANIM_OVERLAY_IN * 1.27) \
-		.set_trans(Tween.TRANS_BACK).set_ease(Tween.EASE_OUT)
-	t.tween_property(panel, "modulate", Color.WHITE, ANIM_OVERLAY_IN)
+	UIHelpers.animate_overlay_in(self, dim, panel, ANIM_OVERLAY_IN)
 
 func _make_small_btn(label: String) -> Button:
 	var btn: Button = Button.new()
@@ -592,23 +636,18 @@ func _make_small_btn(label: String) -> Button:
 
 # ── Style helpers ──────────────────────────────────────────────────────────
 func _rounded_box(color: Color, radius: int) -> StyleBoxFlat:
-	var s: StyleBoxFlat = StyleBoxFlat.new()
-	s.bg_color = color
-	s.corner_radius_top_left     = radius
-	s.corner_radius_top_right    = radius
-	s.corner_radius_bottom_left  = radius
-	s.corner_radius_bottom_right = radius
-	s.content_margin_left   = 12
-	s.content_margin_right  = 12
-	s.content_margin_top    = 8
-	s.content_margin_bottom = 8
-	return s
+	return UIHelpers.rounded_box(color, radius)
 
 func _make_font(weight: int) -> FontVariation:
-	var fv := FontVariation.new()
-	fv.base_font = load(FONT_PATH)
-	fv.variation_opentype = {"wght": weight}
-	return fv
+	var key := "outfit_%d" % weight
+	if key not in _font_cache:
+		var fv := FontVariation.new()
+		if "outfit_base" not in _font_cache:
+			_font_cache["outfit_base"] = load(FONT_PATH)
+		fv.base_font = _font_cache["outfit_base"] as FontFile
+		fv.variation_opentype = {"wght": weight}
+		_font_cache[key] = fv
+	return _font_cache[key] as FontVariation
 
 func _build_spacer(parent: VBoxContainer, height: int) -> void:
 	var s: Control = Control.new()
@@ -616,77 +655,10 @@ func _build_spacer(parent: VBoxContainer, height: int) -> void:
 	parent.add_child(s)
 
 func _fmt_time(secs: float) -> String:
-	var s: int = int(secs)
-	if s < 60:
-		return "%ds" % s
-	var mins: int = floori(s / 60.0)
-	return "%dm%02ds" % [mins, s % 60]
+	return UIHelpers.fmt_time(secs)
 
 func _make_leaderboard_row_menu(rank: int, entry: Dictionary, is_me: bool, odd: bool = false) -> Control:
-	var wrapper := PanelContainer.new()
-	wrapper.size_flags_horizontal = Control.SIZE_EXPAND_FILL
-	if is_me:
-		var hl := _rounded_box(C_ACCENT.darkened(0.30), 8)
-		hl.border_width_left   = 2
-		hl.border_width_right  = 2
-		hl.border_width_top    = 2
-		hl.border_width_bottom = 2
-		hl.border_color = C_ACCENT
-		wrapper.add_theme_stylebox_override("panel", hl)
-	else:
-		var flat := StyleBoxFlat.new()
-		flat.bg_color = Color(1, 1, 1, 0.04 if odd else 0.0)
-		flat.corner_radius_top_left     = 6
-		flat.corner_radius_top_right    = 6
-		flat.corner_radius_bottom_left  = 6
-		flat.corner_radius_bottom_right = 6
-		flat.content_margin_left   = 8
-		flat.content_margin_right  = 8
-		flat.content_margin_top    = 4
-		flat.content_margin_bottom = 4
-		wrapper.add_theme_stylebox_override("panel", flat)
-
-	var row := HBoxContainer.new()
-	row.add_theme_constant_override("separation", 10)
-	wrapper.add_child(row)
-
-	var rank_lbl := Label.new()
-	rank_lbl.text = "%d." % rank
-	rank_lbl.custom_minimum_size = Vector2(32, 0)
-	rank_lbl.add_theme_font_override("font", _make_font(700))
-	var rank_color: Color
-	if is_me:
-		rank_color = C_ACCENT
-	elif rank == 1:
-		rank_color = Color(1.00, 0.84, 0.10)
-	elif rank == 2:
-		rank_color = Color(0.75, 0.76, 0.82)
-	elif rank == 3:
-		rank_color = Color(0.80, 0.52, 0.25)
-	else:
-		rank_color = C_TEXT_DIM
-	rank_lbl.add_theme_color_override("font_color", rank_color)
-	row.add_child(rank_lbl)
-
-	var name_lbl := Label.new()
-	name_lbl.text = entry["name"]
-	name_lbl.size_flags_horizontal = Control.SIZE_EXPAND_FILL
-	name_lbl.add_theme_font_override("font", _make_font(700 if is_me else 500))
-	row.add_child(name_lbl)
-
-	var score_lbl := Label.new()
-	score_lbl.text = "%d" % entry["score"]
-	score_lbl.add_theme_color_override("font_color", C_WIN if is_me else C_TEXT)
-	row.add_child(score_lbl)
-
-	var time_lbl := Label.new()
-	time_lbl.text = _fmt_time(entry["time"])
-	time_lbl.add_theme_font_override("font", _make_font(500))
-	time_lbl.add_theme_color_override("font_color", C_TEXT_DIM)
-	time_lbl.add_theme_font_size_override("font_size", 13)
-	row.add_child(time_lbl)
-
-	return wrapper
+	return UIHelpers.make_leaderboard_row(rank, entry, is_me, odd, _make_font)
 
 func _show_leaderboard_overlay_menu(mode: String, date_str: String) -> void:
 	if _overlay and is_instance_valid(_overlay):
@@ -706,9 +678,8 @@ func _show_leaderboard_overlay_menu(mode: String, date_str: String) -> void:
 	header.add_theme_font_override("font", _make_font(700))
 	vbox.add_child(header)
 
-	var parts := date_str.split("-")
 	var date_lbl := Label.new()
-	date_lbl.text = "%s.%s.%s." % [parts[2], parts[1], parts[0]]
+	date_lbl.text = UIHelpers.format_date_label(date_str)
 	date_lbl.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
 	date_lbl.add_theme_font_override("font", _make_font(300))
 	date_lbl.add_theme_color_override("font_color", C_TEXT_DIM)

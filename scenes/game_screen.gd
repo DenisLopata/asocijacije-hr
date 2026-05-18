@@ -26,19 +26,21 @@ enum FeedbackType { CORRECT, WRONG, ONE_AWAY, HINT, END }
 
 # ── Palette ────────────────────────────────────────────────────────────────
 const C_BG          := Color(0.07, 0.08, 0.11)
-const C_SURFACE     := Color(0.13, 0.14, 0.18)
+# Shared palette — C_SURFACE/TEXT/TEXT_DIM/ACCENT/WIN are single-sourced from UIHelpers.
+const C_SURFACE     := UIHelpers.C_SURFACE
+const C_TEXT        := UIHelpers.C_TEXT
+const C_TEXT_DIM    := UIHelpers.C_TEXT_DIM
+const C_ACCENT      := UIHelpers.C_ACCENT
+const C_WIN         := UIHelpers.C_WIN
+# Screen-specific colours.
 const C_TILE_NORMAL := Color(0.17, 0.19, 0.25)
 const C_TILE_HOVER  := Color(0.22, 0.24, 0.32)
 const C_TILE_SEL    := Color(0.22, 0.24, 0.35)
 const C_SEL_BORDER  := Color(0.55, 0.75, 1.00)
-const C_TEXT        := Color(0.96, 0.96, 0.98)
-const C_TEXT_DIM    := Color(0.68, 0.69, 0.74)
-const C_ACCENT      := Color(0.45, 0.55, 1.00)
 const C_SUBMIT_OFF  := Color(0.22, 0.23, 0.30)
 const C_SUBMIT_ON   := Color(0.28, 0.60, 0.42)
 const C_MISTAKE_ON  := Color(0.95, 0.78, 0.25)
 const C_MISTAKE_OFF := Color(0.22, 0.23, 0.28)
-const C_WIN         := Color(0.30, 0.85, 0.55)
 const C_LOSE        := Color(0.90, 0.35, 0.35)
 const C_ONE_AWAY    := Color(0.95, 0.65, 0.20)
 
@@ -73,6 +75,7 @@ func _icon(icon_name: String) -> String:
 		"local_fire":     0xE149,
 		"timer":          0xE425,
 		"leaderboard":    0xF20B,
+		"backspace":      0xE14A,
 	}
 	return char(CP.get(icon_name, 0x3F))
 
@@ -213,7 +216,8 @@ func _debug_clear_daily() -> void:
 	cfg.erase_section_key("daily_five",   date_str + "_score")
 	cfg.erase_section_key("daily_five",   date_str + "_time")
 	cfg.save(SaveManager.PREFS_PATH)
-	print("[DEBUG] Cleared daily results for ", date_str)
+	SaveManager.clear_save()
+	print("[DEBUG] Cleared daily results + Dnevnih 5 session for ", date_str)
 
 func _debug_skip_to_leaderboard() -> void:
 	if _is_daily:
@@ -387,6 +391,14 @@ func _build_ui() -> void:
 	var fade_in: Tween = create_tween()
 	fade_in.tween_property(_fade_rect, "modulate:a", 0.0, 0.30)
 
+	# 1-second tick drives the timer label — updating each frame is wasteful since
+	# _fmt_time rounds to whole seconds anyway.
+	var tick := Timer.new()
+	tick.wait_time = 1.0
+	tick.autostart = true
+	tick.timeout.connect(_on_tick)
+	add_child(tick)
+
 func _add_bg() -> void:
 	var bg: ColorRect = ColorRect.new()
 	bg.set_anchors_and_offsets_preset(Control.PRESET_FULL_RECT)
@@ -543,25 +555,8 @@ func _build_nav_row(parent: VBoxContainer) -> void:
 func _load_puzzle(index: int) -> void:
 	_state_generation += 1  # invalidates any pending awaits from the old puzzle (#4, #9)
 	_hide_summary()
-	if _state != null:
-		if _state.selection_changed.is_connected(_on_selection_changed):
-			_state.selection_changed.disconnect(_on_selection_changed)
-		if _state.guess_correct.is_connected(_on_guess_correct):
-			_state.guess_correct.disconnect(_on_guess_correct)
-		if _state.guess_wrong.is_connected(_on_guess_wrong):
-			_state.guess_wrong.disconnect(_on_guess_wrong)
-		if _state.hint_peek.is_connected(_on_hint_peek):
-			_state.hint_peek.disconnect(_on_hint_peek)
-		if _state.hint_word.is_connected(_on_hint_word):
-			_state.hint_word.disconnect(_on_hint_word)
-		if _state.hint_solve.is_connected(_on_hint_solve):
-			_state.hint_solve.disconnect(_on_hint_solve)
-		if _state.score_changed.is_connected(_on_score_changed):
-			_state.score_changed.disconnect(_on_score_changed)
-		if _state.game_won.is_connected(_on_game_won):
-			_state.game_won.disconnect(_on_game_won)
-		if _state.game_lost.is_connected(_on_game_lost):
-			_state.game_lost.disconnect(_on_game_lost)
+	# GameState extends RefCounted — assigning a new instance drops the old ref
+	# count to zero, freeing it and automatically disconnecting all its signals.
 	_state = GameState.new(_puzzles[index])
 	_state.selection_changed.connect(_on_selection_changed)
 	_state.guess_correct.connect(_on_guess_correct)
@@ -574,7 +569,6 @@ func _load_puzzle(index: int) -> void:
 	_state.game_lost.connect(_on_game_lost)
 
 	_puzzle_start_time = Time.get_unix_time_from_system()
-	SaveManager.save_puzzle_start(_puzzle_start_time)
 
 	_score_display = 0
 	_score_label.text = "0"
@@ -755,17 +749,7 @@ func _tile_style_selected() -> StyleBoxFlat:
 	return s
 
 func _rounded_box(color: Color, radius: int) -> StyleBoxFlat:
-	var s: StyleBoxFlat = StyleBoxFlat.new()
-	s.bg_color = color
-	s.corner_radius_top_left     = radius
-	s.corner_radius_top_right    = radius
-	s.corner_radius_bottom_left  = radius
-	s.corner_radius_bottom_right = radius
-	s.content_margin_left   = 8
-	s.content_margin_right  = 8
-	s.content_margin_top    = 4
-	s.content_margin_bottom = 4
-	return s
+	return UIHelpers.rounded_box(color, radius)
 
 func _set_dot_active(dot: Label, active: bool) -> void:
 	dot.text = _icon("favorite") if active else _icon("favorite_border")
@@ -895,10 +879,9 @@ func _hide_feedback() -> void:
 			p.queue_free()
 	_active_feedbacks.clear()
 
-func _process(_delta: float) -> void:
+func _on_tick() -> void:
 	if _timer_running and _puzzle_start_time > 0.0:
-		var elapsed := Time.get_unix_time_from_system() - _puzzle_start_time
-		_timer_label.text = _fmt_time(elapsed)
+		_timer_label.text = UIHelpers.fmt_time(Time.get_unix_time_from_system() - _puzzle_start_time)
 
 # ── Signal handlers ────────────────────────────────────────────────────────
 func _on_selection_changed(selected: Array[String]) -> void:
@@ -972,7 +955,7 @@ func _on_guess_correct(category: PuzzleData.Category) -> void:
 
 	_rebuild_grid()
 	_add_solved_row_animated(category)
-	if not _is_daily:
+	if _is_five_daily:
 		SaveManager.save_session.call_deferred(_puzzles, _current_puzzle_index, _state, _puzzle_times, _puzzle_scores, _puzzle_start_time)  # (#27)
 
 func _on_guess_wrong(words: Array[String], one_away: bool) -> void:  # (#5: use explicit words param)
@@ -1014,7 +997,7 @@ func _on_guess_wrong(words: Array[String], one_away: bool) -> void:  # (#5: use 
 			obtn.add_theme_stylebox_override("normal", amber_style)
 			obtn.add_theme_stylebox_override("hover",  amber_style)
 			await get_tree().create_timer(0.9).timeout
-			if is_instance_valid(obtn) and obtn in _tile_buttons.values():
+			if is_instance_valid(obtn) and _tile_buttons.has(outlier):
 				var sel_style: StyleBoxFlat = _tile_style_selected()
 				obtn.add_theme_stylebox_override("normal", sel_style)
 				obtn.add_theme_stylebox_override("hover",  sel_style)
@@ -1022,7 +1005,7 @@ func _on_guess_wrong(words: Array[String], one_away: bool) -> void:  # (#5: use 
 	else:
 		_show_typed_feedback(FeedbackType.WRONG, "Nije točno — pokušaj ponovo")
 
-	if not _is_daily:
+	if _is_five_daily:
 		SaveManager.save_session.call_deferred(_puzzles, _current_puzzle_index, _state, _puzzle_times, _puzzle_scores, _puzzle_start_time)
 
 func _flash_tiles_wrong(btns: Array[Button]) -> void:  # (#1)
@@ -1115,7 +1098,7 @@ func _add_solved_row(category: PuzzleData.Category) -> void:
 	vbox.add_child(cat_lbl)
 
 	var words_lbl: Label = Label.new()
-	words_lbl.text = "  /  ".join(category.words)
+	words_lbl.text = "  /  ".join(category.words.map(func(w: String) -> String: return w.to_upper()))
 	words_lbl.theme_type_variation = "SolvedWordsLabel"
 	words_lbl.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
 	vbox.add_child(words_lbl)
@@ -1132,7 +1115,7 @@ func _add_solved_row(category: PuzzleData.Category) -> void:
 	var smat := ShaderMaterial.new()
 	var shimmer_shader := Shader.new(); shimmer_shader.code = _SHADER_SHIMMER_SRC
 	smat.shader = shimmer_shader
-	smat.set_shader_parameter("spawn_time", Time.get_ticks_msec() / 1000.0)
+	smat.set_shader_parameter("spawn_time", Time.get_unix_time_from_system())
 	smat.set_shader_parameter("sparkle_intensity", SPARKLE_INTENSITY[category.difficulty])
 	row.material = smat
 
@@ -1307,10 +1290,10 @@ func _show_name_picker() -> void:
 	_close_overlay()
 
 	var dim: ColorRect = _make_dim()
+	_overlay = dim
 	_overlay_tag = "name_picker"
 
 	var panel: PanelContainer = _make_overlay_panel(dim, 500)
-	_overlay = panel
 	var vbox: VBoxContainer = _make_overlay_vbox(panel, 14)
 
 	var header: Label = Label.new()
@@ -1399,8 +1382,10 @@ func _show_name_picker() -> void:
 				sb_p.border_color = key_color.darkened(0.35)
 				sb_p.content_margin_top = 5
 				btn.add_theme_stylebox_override("pressed", sb_p)
-				btn.text = "⌫" if ch == "DEL" else ch
+				btn.text = _icon("backspace") if ch == "DEL" else ch
 				btn.add_theme_font_size_override("font_size", 18)
+				if ch == "DEL":
+					btn.add_theme_font_override("font", _mixed_font(400))
 				if ch == "OK":
 					btn.add_theme_font_override("font", _make_font(700))
 					btn.disabled = true
@@ -1496,7 +1481,7 @@ func _on_name_confirmed(player_name: String) -> void:
 # ── Submitting / leaderboard overlays ─────────────────────────────────────
 func _show_submitting_overlay(player_name: String, score: int, time_sec: float,
 		mode: String, date_str: String, puzzle_seed: int) -> void:
-	if FirebaseClient.was_submitted(mode, date_str):
+	if SaveManager.was_submitted(mode, date_str):
 		_show_leaderboard_overlay(mode, date_str, FirebaseClient.get_uid(), score, time_sec)
 		return
 	var dim := _make_dim()
@@ -1560,8 +1545,7 @@ func _show_leaderboard_overlay(mode: String, date_str: String, my_uid: String, m
 	vbox.add_child(header)
 
 	var date_lbl := Label.new()
-	var parts := date_str.split("-")
-	date_lbl.text = "%s.%s.%s." % [parts[2], parts[1], parts[0]]
+	date_lbl.text = UIHelpers.format_date_label(date_str)
 	date_lbl.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
 	date_lbl.add_theme_font_override("font", _make_font(500))
 	date_lbl.add_theme_color_override("font_color", C_TEXT_DIM)
@@ -1640,77 +1624,10 @@ func _show_leaderboard_overlay(mode: String, date_str: String, my_uid: String, m
 	vbox.add_child(close_btn)
 
 func _make_leaderboard_row(rank: int, entry: Dictionary, is_me: bool, odd: bool = false) -> Control:
-	var wrapper := PanelContainer.new()
-	wrapper.size_flags_horizontal = Control.SIZE_EXPAND_FILL
-	if is_me:
-		var hl := _rounded_box(C_ACCENT.darkened(0.30), 8)
-		hl.border_width_left   = 2
-		hl.border_width_right  = 2
-		hl.border_width_top    = 2
-		hl.border_width_bottom = 2
-		hl.border_color = C_ACCENT
-		wrapper.add_theme_stylebox_override("panel", hl)
-	else:
-		var flat := StyleBoxFlat.new()
-		flat.bg_color = Color(1, 1, 1, 0.04 if odd else 0.0)
-		flat.corner_radius_top_left     = 6
-		flat.corner_radius_top_right    = 6
-		flat.corner_radius_bottom_left  = 6
-		flat.corner_radius_bottom_right = 6
-		flat.content_margin_left   = 8
-		flat.content_margin_right  = 8
-		flat.content_margin_top    = 4
-		flat.content_margin_bottom = 4
-		wrapper.add_theme_stylebox_override("panel", flat)
-
-	var row := HBoxContainer.new()
-	row.add_theme_constant_override("separation", 10)
-	wrapper.add_child(row)
-
-	var rank_lbl := Label.new()
-	rank_lbl.text = "%d." % rank
-	rank_lbl.custom_minimum_size = Vector2(32, 0)
-	rank_lbl.add_theme_font_override("font", _make_font(700))
-	var rank_color: Color
-	if is_me:
-		rank_color = C_ACCENT
-	elif rank == 1:
-		rank_color = Color(1.00, 0.84, 0.10)
-	elif rank == 2:
-		rank_color = Color(0.75, 0.76, 0.82)
-	elif rank == 3:
-		rank_color = Color(0.80, 0.52, 0.25)
-	else:
-		rank_color = C_TEXT_DIM
-	rank_lbl.add_theme_color_override("font_color", rank_color)
-	row.add_child(rank_lbl)
-
-	var name_lbl := Label.new()
-	name_lbl.text = entry["name"]
-	name_lbl.size_flags_horizontal = Control.SIZE_EXPAND_FILL
-	name_lbl.add_theme_font_override("font", _make_font(700 if is_me else 500))
-	row.add_child(name_lbl)
-
-	var score_lbl := Label.new()
-	score_lbl.text = "%d" % entry["score"]
-	score_lbl.add_theme_color_override("font_color", C_WIN if is_me else C_TEXT)
-	row.add_child(score_lbl)
-
-	var time_lbl := Label.new()
-	time_lbl.text = _fmt_time(entry["time"])
-	time_lbl.add_theme_font_override("font", _make_font(500))
-	time_lbl.add_theme_color_override("font_color", C_TEXT_DIM)
-	time_lbl.add_theme_font_size_override("font_size", 13)
-	row.add_child(time_lbl)
-
-	return wrapper
+	return UIHelpers.make_leaderboard_row(rank, entry, is_me, odd, _make_font)
 
 func _fmt_time(secs: float) -> String:
-	var s: int = int(secs)
-	if s < 60:
-		return "%ds" % s
-	var mins: int = floori(s / 60.0)
-	return "%dm%02ds" % [mins, s % 60]
+	return UIHelpers.fmt_time(secs)
 
 # ── Settings overlay (#14, #18) ────────────────────────────────────────────
 func _on_settings() -> void:
@@ -1818,32 +1735,13 @@ func _make_dim() -> ColorRect:
 	return _dim_rect
 
 func _make_overlay_panel(parent: Control, min_width: int) -> PanelContainer:
-	var center: CenterContainer = CenterContainer.new()
-	center.set_anchors_and_offsets_preset(Control.PRESET_FULL_RECT)
-	parent.add_child(center)
-
-	var panel: PanelContainer = PanelContainer.new()
-	var style: StyleBoxFlat = _rounded_box(C_SURFACE, 20)
-	style.content_margin_left   = 32
-	style.content_margin_right  = 32
-	style.content_margin_top    = 28
-	style.content_margin_bottom = 28
-	panel.add_theme_stylebox_override("panel", style)
-	panel.custom_minimum_size = Vector2(min_width, 0)
-	center.add_child(panel)
-	return panel
+	return UIHelpers.make_overlay_panel(parent, min_width)
 
 func _make_overlay_vbox(parent: Control, separation: int) -> VBoxContainer:
-	var vbox: VBoxContainer = VBoxContainer.new()
-	vbox.add_theme_constant_override("separation", separation)
-	parent.add_child(vbox)
-	return vbox
+	return UIHelpers.make_overlay_vbox(parent, separation)
 
 func _add_separator(parent: VBoxContainer) -> void:
-	var sep: ColorRect = ColorRect.new()
-	sep.color = Color(1, 1, 1, 0.08)
-	sep.custom_minimum_size = Vector2(0, 1)
-	parent.add_child(sep)
+	UIHelpers.add_separator(parent)
 
 func _add_stat_row(parent: VBoxContainer, key: String, value: String) -> void:
 	var row: HBoxContainer = HBoxContainer.new()
@@ -1860,15 +1758,7 @@ func _add_stat_row(parent: VBoxContainer, key: String, value: String) -> void:
 	row.add_child(v)
 
 func _animate_overlay_in(dim: Control, panel: Control) -> void:
-	panel.pivot_offset = panel.size / 2.0
-	panel.scale        = Vector2(0.88, 0.88)
-	panel.modulate     = Color(1, 1, 1, 0)
-	dim.modulate   = Color(1, 1, 1, 0)
-	var t: Tween = create_tween().set_parallel(true)
-	t.tween_property(dim,   "modulate",       Color.WHITE,    ANIM_OVERLAY_IN)
-	t.tween_property(panel, "scale",          Vector2.ONE,    ANIM_OVERLAY_IN * 1.27) \
-		.set_trans(Tween.TRANS_BACK).set_ease(Tween.EASE_OUT)
-	t.tween_property(panel, "modulate",       Color.WHITE,    ANIM_OVERLAY_IN)
+	UIHelpers.animate_overlay_in(self, dim, panel, ANIM_OVERLAY_IN)
 
 # ── Confetti (#17) ────────────────────────────────────────────────────────
 func _spawn_confetti() -> void:
@@ -1933,40 +1823,15 @@ func _on_hint_word(category_name: String, word: String, hints_left: int) -> void
 	_update_hint_btn()
 
 func _on_hint_solve(category: PuzzleData.Category, hints_left: int) -> void:
-	var msg: String = "💡  Riješena kategorija: \"%s\"" % category.name
+	var msg: String = _icon("lightbulb") + "  Riješena kategorija: \"%s\"" % category.name
 	if hints_left > 0:
 		msg += "  —  još %s" % _hint_word(hints_left)
 	_show_typed_feedback(FeedbackType.HINT, msg)
 	_update_hint_btn()
 	_add_solved_row_animated(category)
 	_rebuild_grid()
-	if not _is_daily:
+	if _is_five_daily:
 		SaveManager.save_session.call_deferred(_puzzles, _current_puzzle_index, _state, _puzzle_times, _puzzle_scores, _puzzle_start_time)
-
-func _highlight_peeked_category(category_name: String) -> void:
-	for cat in _state.puzzle.categories:
-		if cat.name != category_name:
-			continue
-		for word in cat.words:
-			if not _tile_buttons.has(word):
-				continue
-			var btn: Button = _tile_buttons[word]
-			var tween: Tween = create_tween().set_loops(2)
-			var hint_style: StyleBoxFlat = _tile_style_normal().duplicate()
-			hint_style.border_width_left   = BORDER_SEL
-			hint_style.border_width_right  = BORDER_SEL
-			hint_style.border_width_top    = BORDER_SEL
-			hint_style.border_width_bottom = BORDER_SEL
-			hint_style.border_color = C_MISTAKE_ON
-			tween.tween_callback(func() -> void:
-				if btn and is_instance_valid(btn):
-					btn.add_theme_stylebox_override("normal", hint_style))
-			tween.tween_interval(0.35)
-			tween.tween_callback(func() -> void:
-				if btn and is_instance_valid(btn):
-					btn.add_theme_stylebox_override("normal", _tile_style_normal()))
-			tween.tween_interval(0.35)
-		break
 
 func _on_shuffle() -> void:
 	_rebuild_grid()
@@ -2004,3 +1869,7 @@ func _navigate_puzzle(direction: int) -> void:
 	if _current_puzzle_index < 0:
 		_current_puzzle_index = _puzzles.size() - 1
 	_load_puzzle(_current_puzzle_index)
+	# Persist the advance immediately — otherwise quitting after navigating but
+	# before making a guess on the new puzzle would resume the solved one.
+	if _is_five_daily:
+		SaveManager.save_session.call_deferred(_puzzles, _current_puzzle_index, _state, _puzzle_times, _puzzle_scores, _puzzle_start_time)
