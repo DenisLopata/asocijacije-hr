@@ -236,9 +236,12 @@ func _ready() -> void:
 		var daily_seed: int = get_tree().get_meta("daily_seed")
 		get_tree().remove_meta("daily_seed")
 		seed(daily_seed)
-		var _yd := Time.get_date_dict_from_unix_time(int(Time.get_unix_time_from_system()) - 86400)
-		var yesterday_seed: int = int(_yd.year) * 10000 + int(_yd.month) * 100 + int(_yd.day)
-		_puzzles = [PuzzleData.get_single_puzzle(yesterday_seed)]
+		var _now: int = int(Time.get_unix_time_from_system())
+		var excluded_seeds: Array = []
+		for d in range(1, 8):
+			var _d := Time.get_date_dict_from_unix_time(_now - 86400 * d)
+			excluded_seeds.append(int(_d.year) * 10000 + int(_d.month) * 100 + int(_d.day))
+		_puzzles = [PuzzleData.get_single_puzzle(daily_seed, excluded_seeds)]
 		_build_ui()
 		_load_puzzle(_current_puzzle_index)
 	elif get_tree().has_meta("five_seed"):

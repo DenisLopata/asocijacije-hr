@@ -484,11 +484,20 @@ static func _purple_pool() -> Array:
 		["Krije se pet",               ["apetit", "kapetanica", "tapetirati", "upetljati"], 3, "wordplay",  ["pet", "kind:hidden_word"]],
 	]
 
-static func get_single_puzzle(yesterday_seed: int = -1) -> Puzzle:
+# today_seed  — YYYYMMDD int for today; drives weight variant and tier-order shuffle.
+# excluded_seeds — array of YYYYMMDD ints (last N days) whose categories are excluded.
+static func get_single_puzzle(today_seed: int = -1, excluded_seeds: Array = []) -> Puzzle:
 	var raw_pools: Array = [_yellow_pool(), _green_pool(), _blue_pool(), _purple_pool()]
 	var diffs: Array = [Difficulty.YELLOW, Difficulty.GREEN, Difficulty.BLUE, Difficulty.PURPLE]
 	var extras: Dictionary = _category_extras()
-	var weights: Array = [25, 45, 30]
+
+	# Fix 2: rotate rank bias across days so difficulty varies slightly day-to-day.
+	var weight_variants: Array = [
+		[35, 45, 20],  # today_seed % 3 == 0 — slightly easier
+		[25, 45, 30],  # today_seed % 3 == 1 — balanced
+		[15, 45, 40],  # today_seed % 3 == 2 — slightly harder
+	]
+	var weights: Array = weight_variants[today_seed % 3] if today_seed >= 0 else [25, 45, 30]
 
 	var pool_buckets: Array = []
 	for pool in raw_pools:
@@ -500,14 +509,27 @@ static func get_single_puzzle(yesterday_seed: int = -1) -> Puzzle:
 			buckets[r].shuffle()
 		pool_buckets.append(buckets)
 
+	# Fix 4: union of excluded categories across all recent days.
 	var excluded: Dictionary = {}
-	if yesterday_seed >= 0:
-		excluded = _names_for_seed(yesterday_seed, weights)
+	for seed_val in excluded_seeds:
+		if seed_val >= 0:
+			for k in _names_for_seed(seed_val, weights):
+				excluded[k] = true
 
-	var cats: Array = []
+	# Fix 3: shuffle tier pick order per-day so conflict resolution doesn't always
+	# favour YELLOW over PURPLE. Use a separate RNG to avoid consuming global RNG state.
+	var tier_order: Array = [0, 1, 2, 3]
+	if today_seed >= 0:
+		var rng_t := RandomNumberGenerator.new()
+		rng_t.seed = today_seed ^ 0xDEAD  # XOR to avoid aliasing _names_for_seed seeds
+		for i in range(3, 0, -1):
+			var j := rng_t.randi() % (i + 1)
+			var tmp = tier_order[i]; tier_order[i] = tier_order[j]; tier_order[j] = tmp
+
+	var cats_by_tier: Dictionary = {}
 	var used_subtypes: Dictionary = {}
 	var used_conflict_tags: Dictionary = {}
-	for p in 4:
+	for p in tier_order:
 		var entry: Array = _weighted_pick(pool_buckets[p], weights)
 		if not _frazem_ok(entry[0], used_subtypes) or excluded.has(entry[0]) or not _conflict_ok(entry, used_conflict_tags):
 			entry = _try_swap(pool_buckets[p], entry, used_subtypes, excluded, used_conflict_tags)
@@ -520,7 +542,11 @@ static func get_single_puzzle(yesterday_seed: int = -1) -> Puzzle:
 		cat.rank       = entry[2] if entry.size() > 2 else 2
 		cat.complexity = entry[3] if entry.size() > 3 else "thematic"
 		cat.extra = extras.get(entry[0], "")
-		cats.append(cat)
+		cats_by_tier[p] = cat
+
+	var cats: Array = []
+	for p in 4:
+		cats.append(cats_by_tier[p])
 
 	var puzzle := Puzzle.new("Dnevni izazov", cats)
 	if OS.is_debug_build():
@@ -670,13 +696,16 @@ static func _names_for_seed(seed_val: int, weights: Array) -> Dictionary:
 		pool_buckets.append(buckets)
 	var names: Dictionary = {}
 	var used_subtypes: Dictionary = {}
+	var used_conflict_tags: Dictionary = {}
 	for p in 4:
 		var entry: Array = _weighted_pick_rng(pool_buckets[p], weights, rng)
-		if not _frazem_ok(entry[0], used_subtypes):
-			entry = _try_swap(pool_buckets[p], entry, used_subtypes, {})
+		if not _frazem_ok(entry[0], used_subtypes) or not _conflict_ok(entry, used_conflict_tags):
+			entry = _try_swap(pool_buckets[p], entry, used_subtypes, {}, used_conflict_tags)
 		var subtype := _get_frazem_subtype(entry[0])
 		if subtype != "":
 			used_subtypes[subtype] = true
+		for tag in _get_conflict_tags(entry):
+			used_conflict_tags[tag] = true
 		names[entry[0]] = true
 	return names
 
