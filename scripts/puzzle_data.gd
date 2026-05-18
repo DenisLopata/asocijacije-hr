@@ -269,6 +269,7 @@ static func _blue_pool() -> Array:
 		["Hrvatski padeži",        ["nominativ", "genitiv", "dativ", "akuzativ"],          1, "obvious"],
 		["Glagolska vremena",      ["prezent", "perfekt", "aorist", "futur"],              1, "obvious"],
 		["Homonimi",               ["list", "grad", "kos", "pas"],                         3, "wordplay",  ["list", "grad", "kos", "pas", "kind:homonimi"]],
+		["Počinju s kro-",         ["krokodil", "krošnja", "kronometar", "krojač"],        1, "wordplay"],
 		# --- rank 2 ---
 		["Geološka razdoblja",     ["jura", "kreda", "silur", "devon"],                    2, "thematic"],
 		["Geografski pojmovi",     ["poluotok", "tjesnac", "fjord", "laguna"],             2, "thematic"],
@@ -436,6 +437,7 @@ static func _purple_pool() -> Array:
 		["Mogu slijediti: ZLATNI", ["okvir", "rez", "fond", "standard"],                   2, "wordplay",  ["zlat"]],
 		["Mogu slijediti: TIHI",   ["ocean", "partner", "protest", "promatrač"],           2, "wordplay"],
 		["Glagoli za promatrati",   ["opažati", "motriti", "uočiti", "nadzirati"],         2, "wordplay"],
+		["Sinonimi za propast",    ["fijasko", "brodolom", "podbačaj", "promašaj"],        2, "semantic"],
 		# --- rank 3 ---
 		["Mogu biti živi/e",       ["biće", "srebro", "meso", "pitanje"],                 3, "wordplay",  ["srebr"]],
 		["Metrika u poeziji",      ["jamb", "trohej", "daktil", "amfibrah"],              3, "thematic"],
